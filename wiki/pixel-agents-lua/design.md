@@ -348,7 +348,7 @@ Framework: **busted**, run as `busted spec/` — no Love2D required.
 
 ### 8.4 Manual test checklist
 
-`docs/pixel-agents-lua/manual-test-checklist.md` (written during implementation):
+`wiki/pixel-agents-lua/manual-test-checklist.md` (written during implementation):
 - [ ] Cold boot → empty office
 - [ ] `claude --session-id test-1` → character walks door → seat
 - [ ] Read → read animation
@@ -381,7 +381,7 @@ None blocking. Items deferred to implementation:
 
 ## 10. Related Files
 
-- `docs/pixel-agents-lua/BACKLOG.md` — deferred work items (hooks upgrade, legal review of character assets, cross-platform support, P2/P3 features)
+- `wiki/pixel-agents-lua/BACKLOG.md` — deferred work items (hooks upgrade, legal review of character assets, cross-platform support, P2/P3 features)
 - Original reference: `CLAUDE.md` — compressed reference for `pixel-agents-native` (VS Code extension), used as source for JSONL parsing conventions, tool→animation mapping, and timing constants
 
 ---
