@@ -35,3 +35,6 @@ playwright-report/
 
 # Local notes (not for commit)
 /notes/
+
+# Superpowers brainstorming scratch
+.superpowers/
