@@ -3,3 +3,4 @@
 .luarocks/
 dev/fake-session.jsonl
 demos/
+dist/

@@ -47,12 +47,23 @@ function love.load()
   assets.load()
   log_to_save("[boot] assets loaded")
 
-  local game_dir = love.filesystem.getSource()
+  -- In dev, love runs the source directory and getSource() points at it.
+  -- In a fused .exe, getSource() points at the .exe file itself, so we use
+  -- getSourceBaseDirectory() (the parent dir) to find the sibling layouts/,
+  -- hooks/, and dev/ directories.
+  local game_dir
+  if love.filesystem.isFused and love.filesystem.isFused() then
+    game_dir = love.filesystem.getSourceBaseDirectory()
+  else
+    game_dir = love.filesystem.getSource()
+  end
   local workspace = love.filesystem.getWorkingDirectory()
   local conf = config.load(workspace)
   log_to_save(string.format("[boot] workspace=%s", conf.workspacePath))
   log_to_save(string.format("[boot] projectHash=%s", conf.projectHash))
   log_to_save(string.format("[boot] claudeDir=%s", conf.claudeDir))
+  log_to_save(string.format("[boot] gameDir=%s fused=%s", game_dir,
+    tostring(love.filesystem.isFused and love.filesystem.isFused() or false)))
 
   local layout = loader.load(game_dir .. "/" .. conf.layoutFile)
   local W = world.new(layout)

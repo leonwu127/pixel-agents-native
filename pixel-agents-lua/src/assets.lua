@@ -45,11 +45,35 @@ local function load_png_abs(abs_path)
   return img
 end
 
+-- Resolve the directory that holds PNG assets. Dev mode reads from the sibling
+-- `webview-ui/public/assets` dir in the monorepo; packaged mode (fused .exe)
+-- reads from an `assets/` dir beside the executable. We try candidates in
+-- order and pick the first one where a sentinel file exists.
+local function resolve_assets_dir()
+  local candidates
+  if love.filesystem.isFused and love.filesystem.isFused() then
+    -- Fused: getSource() is the .exe path; parent dir holds the bundled assets.
+    local base = love.filesystem.getSourceBaseDirectory()
+    candidates = { base .. "/assets" }
+  else
+    local src = love.filesystem.getSource()  -- pixel-agents-lua/ in dev
+    candidates = {
+      src .. "/assets",                       -- optional bundled copy
+      src .. "/../webview-ui/public/assets",  -- monorepo dev path
+    }
+  end
+  for _, dir in ipairs(candidates) do
+    local probe = io.open(dir .. "/floors/floor_0.png", "rb")
+    if probe then probe:close(); return dir end
+  end
+  error(string.format("assets: none of the candidate dirs contain floor_0.png:\n  %s",
+    table.concat(candidates, "\n  ")))
+end
+
 function M.load()
   love.graphics.setDefaultFilter("nearest", "nearest")
 
-  local game_dir = love.filesystem.getSource()       -- absolute path to pixel-agents-lua
-  local assets_dir = game_dir .. "/../webview-ui/public/assets"
+  local assets_dir = resolve_assets_dir()
 
   -- Load all 6 pre-colored character sheets (char_0..5). They share the same
   -- 112x96 layout, so a single quad set works for any palette.

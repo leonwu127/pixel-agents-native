@@ -82,6 +82,18 @@ Default mode polls the Claude transcript at 500ms intervals. For <100ms latency,
 
 **Polling still runs** alongside hooks. Hooks drive lifecycle (spawn, idle, permission); polling continues to parse tool content. The character's `hookDelivered` flag suppresses polling's 7s permission fallback once hooks are confirmed live.
 
+## Build a standalone .exe
+
+To produce a distributable Windows binary that doesn't require end users to install Love2D:
+
+```powershell
+pwsh pixel-agents-lua\scripts\build-exe.ps1 [-Zip] [-Console]
+```
+
+Output: `pixel-agents-lua\dist\pixel-agents-lua\` contains `pixel-agents-lua.exe` + Love2D DLLs + `assets/` + `layouts/` + `hooks/`. The whole folder is self-contained — copy it anywhere and double-click the `.exe`. With `-Zip`, also writes `dist\pixel-agents-lua.zip` (~4.5 MB). With `-Console`, fuses `lovec.exe` so `print()` output attaches to the launching shell (for debugging).
+
+What the script does: zips the runtime Lua into a `.love`, fuses it onto `love.exe` (`copy /b`), stages Love2D's DLLs + license, and copies `webview-ui/public/assets/`, `layouts/`, and `hooks/` beside the exe. `assets.lua` detects fused mode via `love.filesystem.isFused()` and reads from the sibling `assets/` dir; dev mode still reads from the monorepo path.
+
 ## Development
 
 - Main design: `../wiki/pixel-agents-lua/design.md`
