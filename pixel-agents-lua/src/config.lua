@@ -18,8 +18,9 @@ local assertf = require("src.assert").assertf
 local M = {}
 
 local DEFAULTS = {
-  layoutFile = "layouts/mvp_v0.lua",
-  pollMs     = 500,
+  layoutFile    = "layouts/mvp_v0.lua",
+  pollMs        = 500,
+  hooksEnabled  = false,  -- opt-in: modifies ~/.claude/settings.json when true
 }
 
 function M.project_hash(path)
@@ -50,6 +51,7 @@ function M.load(workspace_default)
     workspacePath = workspace_default,
     layoutFile    = DEFAULTS.layoutFile,
     pollMs        = DEFAULTS.pollMs,
+    hooksEnabled  = DEFAULTS.hooksEnabled,
   }
 
   local path = M.find_config_file()
@@ -62,6 +64,7 @@ function M.load(workspace_default)
     if user.workspacePath then conf.workspacePath = user.workspacePath end
     if user.layoutFile then conf.layoutFile = user.layoutFile end
     if user.pollMs then conf.pollMs = user.pollMs end
+    if user.hooksEnabled ~= nil then conf.hooksEnabled = user.hooksEnabled end
   end
 
   assertf(conf.workspacePath and #conf.workspacePath > 0, "config: workspacePath required")

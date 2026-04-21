@@ -13,8 +13,23 @@ local Office = require("src.scenes.office")
 local config = require("src.config")
 local camera_mod = require("src.camera")
 
+local hook_server_mod = require("src.systems.hook_server")
+
 local scene
 local cam
+local hook_server_inst
+
+-- Best-effort PID lookup via LuaJIT FFI (Love2D ships LuaJIT). Falls back to 0
+-- if FFI is unavailable, which just means server.json ownership can't be
+-- verified by PID — harmless in single-instance usage.
+local function get_own_pid()
+  local ok, ffi = pcall(require, "ffi")
+  if not ok then return 0 end
+  pcall(ffi.cdef, "unsigned long GetCurrentProcessId(void);")
+  local ok2, pid = pcall(function() return tonumber(ffi.C.GetCurrentProcessId()) end)
+  if ok2 then return pid or 0 end
+  return 0
+end
 
 local function log_to_save(msg)
   love.filesystem.append("last-boot.log", msg .. "\n")
@@ -57,12 +72,39 @@ function love.load()
 
   cam = camera_mod.new()
 
+  if conf.hooksEnabled then
+    local pid = get_own_pid()
+    hook_server_inst = hook_server_mod.new({
+      user_home = config.user_home(),
+      owner_pid = pid,
+    })
+    local ok, err = pcall(function() hook_server_inst:start() end)
+    if not ok then
+      print("[boot] hook_server start failed: " .. tostring(err))
+      log_to_save("[boot] hook_server start failed: " .. tostring(err))
+      hook_server_inst = nil
+    else
+      log_to_save(string.format("[boot] hook server started (pid=%d)", pid))
+    end
+  else
+    log_to_save("[boot] hooks disabled (set hooksEnabled=true in config.lua to enable)")
+  end
+
   log_to_save("[boot] OK")
   print(string.format("[boot] OK — watching %d dir(s); workspace=%s",
     #watch_dirs, conf.workspacePath))
 end
 
 function love.update(dt)
+  if hook_server_inst then
+    local msgs = hook_server_inst:drain()
+    for _, m in ipairs(msgs) do
+      if m.kind == "event" then
+        print(string.format("[hook] %s %s", m.providerId, m.event.hook_event_name or "?"))
+      end
+    end
+    hook_server_inst:check_thread_error()
+  end
   if scene then scene:update(dt) end
 end
 
@@ -91,5 +133,6 @@ function love.wheelmoved(dx, dy)
 end
 
 function love.quit()
+  if hook_server_inst then hook_server_inst:stop() end
   if scene then scene:stop() end
 end

@@ -69,6 +69,25 @@ Branch: pixel-agents-lua
 
 ---
 
+## Slice S5 — Hooks mode (dual-mode with polling fallback)
+
+**Motivation** (per `wiki/pixel-agents-lua/BACKLOG.md` [UPGRADE]): replace 200–500ms polling latency with <100ms hook-driven events. Keep polling as fallback + for tool-content tracking.
+
+**Architecture decision**: In-Love2D HTTP server via bundled `luasocket` (no sidecar). Hook script is a PowerShell `.ps1` (Win11 native, no Node dependency). Dual-mode switch via per-character `hookDelivered` flag — hooks suppress polling's idle/permission timers, polling still drives tool content display.
+
+**Safety**: writing `~/.claude/settings.json` is opt-in via `config.lua` `hooksEnabled = true`. Settings.json is backed up before modification. Uninstalled on clean shutdown.
+
+**Demo at end of slice**: set `hooksEnabled = true` in config.lua. Run `claude --session-id test-1`. Character appears and reacts to tool calls with visibly lower latency than polling mode (verify both modes still work by toggling the flag).
+
+| Task | Intent | DoD | Depends | Status |
+|------|--------|-----|---------|--------|
+| S5.1 | `src/systems/http.lua` pure HTTP parser + JSON encoder + `src/systems/server_thread.lua` Love2D thread (luasocket bind/accept loop, writes `~/.pixel-agents-lua/server.json`, pushes hook events to `hook_events` channel) | `luajit spec/http_spec.lua` passes (parse request, auth check, build response); in `love .` with `hooksEnabled = true`, server.json appears at `%USERPROFILE%\.pixel-agents-lua\server.json` with port + token; `curl -H "Authorization: Bearer <token>" -X POST -d '{"session_id":"x","hook_event_name":"Stop"}' http://127.0.0.1:<port>/api/hooks/claude` returns 200; main thread prints received event | S4 done | cc:done |
+| S5.2 | `src/systems/installer.lua` — read/merge/write `~/.claude/settings.json` (atomic tmp+rename, idempotent dedup by marker), copy `claude-hook.ps1` template to `~/.pixel-agents-lua/hooks/`; uninstall on shutdown | `luajit spec/installer_spec.lua` passes (install idempotent, uninstall restores, dedup on rerun); running `love .` twice leaves exactly one hook entry per event | S5.1 | cc:TODO |
+| S5.3 | `src/systems/hook_events.lua` — map 11 Claude hook event types to world actions (SessionStart→spawn, Stop→turn_end, PreToolUse→tool_start, PermissionRequest→permission bubble, etc.); extend `src/providers/claude.lua` with `hookEventHandler(event) → world_event` | `luajit spec/hook_events_spec.lua` passes: 11 event kinds each map to expected world event; unknown events return nil; malformed events return nil | S5.1 | cc:TODO |
+| S5.4 | Wire `scenes/office.lua` — drain `hook_events` channel, set per-character `hookDelivered=true`, suppress polling timers for that session; extend `config.lua` with `hooksEnabled`; `main.lua` lifecycle: install on boot (opt-in), uninstall on quit; update manual-test checklist | With `hooksEnabled=true`, character reacts to Stop within 100ms (vs 500ms+ polling); with `hooksEnabled=false`, existing polling behavior unchanged; clean shutdown removes hooks from settings.json | S5.2, S5.3 | cc:TODO |
+
+---
+
 ## Marker legend
 
 | Marker | Meaning |
