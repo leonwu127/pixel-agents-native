@@ -49,25 +49,42 @@ function M.draw(world, assets)
     end
   end
 
-  -- Desks: 48x32 sprite anchored such that its BOTTOM row aligns with the
-  -- bottom of its anchor tile (desk footprint row is the bottom of sprite).
-  -- Visually extends 1 tile upward into the space above.
+  -- Desks: two orientations. FRONT is 48x32 (3 wide × 2 tall footprint, runs
+  -- horizontally across row d.row–d.row+1); SIDE is 16x64 (1 wide × 4 tall,
+  -- runs vertically from d.row to d.row+3). Both are bottom-aligned with
+  -- their footprint's last row so the deepest tile defines the z-anchor.
   for _, d in ipairs(layout.desks or {}) do
-    love.graphics.draw(
-      assets.desk, assets.desk_quad,
-      d.col * TILE,
-      (d.row + 1) * TILE - 32   -- sprite_height=32 -> top at (row+1)*TILE - 32
-    )
+    local img, quad, h, fp_rows
+    if d.orientation == "side" then
+      img, quad, h, fp_rows = assets.desk_side, assets.desk_side_quad, 64, 4
+    else
+      img, quad, h, fp_rows = assets.desk_front, assets.desk_front_quad, 32, 2
+    end
+    local bottom_row = d.row + fp_rows - 1
+    love.graphics.draw(img, quad, d.col * TILE, (bottom_row + 1) * TILE - h)
   end
 
-  -- Chairs: 16x32 sprite anchored at the seat tile so its BOTTOM aligns with
-  -- the seat tile bottom. Drawn before character so the character overlays it.
+  -- Chairs: 16x32 for all three orientations. SIDE faces right natively and
+  -- is flipped horizontally to face left. Drawn before the character so the
+  -- character sprite overlays the seat surface.
   for _, ch in ipairs(layout.chairs or {}) do
-    love.graphics.draw(
-      assets.chair, assets.chair_quad,
-      ch.col * TILE,
-      (ch.row + 1) * TILE - 32
-    )
+    local img, quad
+    if ch.orientation == "front" then
+      img, quad = assets.chair_front, assets.chair_front_quad
+    elseif ch.orientation == "side" or ch.orientation == "side-left" or ch.orientation == "side-right" then
+      img, quad = assets.chair_side, assets.chair_side_quad
+    else
+      img, quad = assets.chair_back, assets.chair_back_quad
+    end
+    local draw_x = ch.col * TILE
+    local draw_y = (ch.row + 1) * TILE - 32
+    if ch.orientation == "side-left" then
+      -- Mirror horizontally: chair faces left. scaleX = -1 requires offsetting
+      -- draw origin by tile width so the sprite still occupies the same tile.
+      love.graphics.draw(img, quad, draw_x + TILE, draw_y, 0, -1, 1)
+    else
+      love.graphics.draw(img, quad, draw_x, draw_y)
+    end
   end
 
   -- Characters, z-sorted by floating y

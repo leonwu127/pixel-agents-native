@@ -107,11 +107,14 @@ describe("layout.loader.validate", function()
     assert.are.equal("up", l.seats[1].facing)
   end)
 
-  it("mvp_v0 seats all face up", function()
+  it("mvp_v0 seats face their adjacent side-desk (profile view)", function()
     local l = loader.load("layouts/mvp_v0.lua")
-    for _, s in ipairs(l.seats) do
-      assert.are.equal("up", s.facing)
-    end
+    local by_id = {}
+    for _, s in ipairs(l.seats) do by_id[s.id] = s end
+    assert.are.equal("left",  by_id.s1.facing)  -- desk to the west
+    assert.are.equal("left",  by_id.s2.facing)
+    assert.are.equal("right", by_id.s3.facing)  -- desk to the east
+    assert.are.equal("right", by_id.s4.facing)
   end)
 
   it("auto-derives chairs from seats (one back per seat)", function()
@@ -145,12 +148,13 @@ describe("layout.loader.load", function()
     assert.is_nil(l.blocked["0,5"])
     -- a sample wall tile is present
     assert.is_true(l.walls["0,0"] == true)
-    -- first desk (anchor 4,2 width 3) blocks cols 4,5,6 at row 2
-    assert.is_true(l.blocked["4,2"] == true)
-    assert.is_true(l.blocked["5,2"] == true)
-    assert.is_true(l.blocked["6,2"] == true)
-    -- seat s1 at (5,3) is walkable (not blocked)
-    assert.is_nil(l.blocked["5,3"])
+    -- first side-desk (anchor 2,1; footprint 1x4) blocks col 2 at rows 1..4
+    assert.is_true(l.blocked["2,1"] == true)
+    assert.is_true(l.blocked["2,2"] == true)
+    assert.is_true(l.blocked["2,3"] == true)
+    assert.is_true(l.blocked["2,4"] == true)
+    -- seat s1 at (3,2) is walkable (not blocked)
+    assert.is_nil(l.blocked["3,2"])
   end)
 
   it("errors on missing file", function()

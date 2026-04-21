@@ -14,10 +14,18 @@
 --   assets.floor_quad         — 16x16 quad for the full floor tile
 --   assets.wall               — wall_0.png Image (64x128, 4x4 grid of 16x32 pieces)
 --   assets.wall_quad          — 16x32 quad (top-left piece of the bitmask grid)
---   assets.desk               — DESK_FRONT.png (48x32, 3-wide 2-tall)
---   assets.desk_quad          — 48x32 quad
---   assets.chair              — WOODEN_CHAIR_BACK.png (16x32)
---   assets.chair_quad         — 16x32 quad
+--   assets.desk_front         — DESK_FRONT.png  (48x32,  3w x 2h footprint)
+--   assets.desk_side          — DESK_SIDE.png   (16x64,  1w x 4h footprint)
+--   assets.desk_front_quad    — 48x32 quad
+--   assets.desk_side_quad     — 16x64 quad
+--   assets.chair_back         — WOODEN_CHAIR_BACK.png  (16x32)
+--   assets.chair_side         — WOODEN_CHAIR_SIDE.png  (16x32, faces right; flip for left)
+--   assets.chair_front        — WOODEN_CHAIR_FRONT.png (16x32)
+--   assets.chair_back_quad / chair_side_quad / chair_front_quad — 16x32 each
+--
+-- Backwards-compat aliases (pre-S6 renderer used hardcoded front/back pair):
+--   assets.desk  = desk_front,   assets.desk_quad  = desk_front_quad
+--   assets.chair = chair_back,   assets.chair_quad = chair_back_quad
 
 local M = {}
 
@@ -51,10 +59,16 @@ function M.load()
   end
   M.character = M.characters[0]        -- backward-compat alias
 
-  M.floor = load_png_abs(assets_dir .. "/floors/floor_0.png")
-  M.wall  = load_png_abs(assets_dir .. "/walls/wall_0.png")
-  M.desk  = load_png_abs(assets_dir .. "/furniture/DESK/DESK_FRONT.png")
-  M.chair = load_png_abs(assets_dir .. "/furniture/WOODEN_CHAIR/WOODEN_CHAIR_BACK.png")
+  M.floor       = load_png_abs(assets_dir .. "/floors/floor_0.png")
+  M.wall        = load_png_abs(assets_dir .. "/walls/wall_0.png")
+  M.desk_front  = load_png_abs(assets_dir .. "/furniture/DESK/DESK_FRONT.png")
+  M.desk_side   = load_png_abs(assets_dir .. "/furniture/DESK/DESK_SIDE.png")
+  M.chair_back  = load_png_abs(assets_dir .. "/furniture/WOODEN_CHAIR/WOODEN_CHAIR_BACK.png")
+  M.chair_side  = load_png_abs(assets_dir .. "/furniture/WOODEN_CHAIR/WOODEN_CHAIR_SIDE.png")
+  M.chair_front = load_png_abs(assets_dir .. "/furniture/WOODEN_CHAIR/WOODEN_CHAIR_FRONT.png")
+  -- Backwards-compat aliases
+  M.desk  = M.desk_front
+  M.chair = M.chair_back
 
   -- Character: 7 frames (16 wide each) x 3 direction rows (32 tall each).
   -- Frame order per CLAUDE.md: walk1, walk2, walk3, type1, type2, read1, read2
@@ -73,11 +87,19 @@ function M.load()
     end
   end
 
-  local dw, dh = M.desk:getDimensions()
-  M.desk_quad = love.graphics.newQuad(0, 0, dw, dh, dw, dh)
+  local function full_quad(img)
+    local iw, ih = img:getDimensions()
+    return love.graphics.newQuad(0, 0, iw, ih, iw, ih), iw, ih
+  end
 
-  local chw, chh = M.chair:getDimensions()
-  M.chair_quad = love.graphics.newQuad(0, 0, chw, chh, chw, chh)
+  M.desk_front_quad  = full_quad(M.desk_front)
+  M.desk_side_quad   = full_quad(M.desk_side)
+  M.chair_back_quad  = full_quad(M.chair_back)
+  M.chair_side_quad  = full_quad(M.chair_side)
+  M.chair_front_quad = full_quad(M.chair_front)
+  -- Backwards-compat aliases
+  M.desk_quad  = M.desk_front_quad
+  M.chair_quad = M.chair_back_quad
 
   local fw, fh = M.floor:getDimensions()
   M.floor_quad = love.graphics.newQuad(0, 0, 16, 16, fw, fh)
@@ -87,7 +109,9 @@ function M.load()
   local ww, wh = M.wall:getDimensions()
   M.wall_quad = love.graphics.newQuad(0, 0, 16, 32, ww, wh)
 
-  print(string.format("[assets] loaded: 6 chars + floor + wall + desk + chair from %s", assets_dir))
+  print(string.format(
+    "[assets] loaded: 6 chars + floor + wall + 2 desks + 3 chairs from %s",
+    assets_dir))
 end
 
 -- Get the Quad for a (frame 0..6, dir_row 0..2) pair. Cached. Same quad

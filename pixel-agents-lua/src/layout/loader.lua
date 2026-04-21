@@ -57,47 +57,74 @@ function M.validate(raw)
     assertf(type(raw.desks) == "table", "layout.desks must be a table or nil")
     for i, d in ipairs(raw.desks) do
       check_coord(string.format("layout.desks[%d]", i), d, cols, rows)
-      local w = d.w or 1
-      local h = d.h or 1
+      local orientation = d.orientation or "front"
+      assertf(orientation == "front" or orientation == "side",
+        "layout.desks[%d]: orientation must be 'front' or 'side' (got %q)", i, tostring(orientation))
+      -- Default footprint depends on orientation so common cases don't have to
+      -- repeat the magic numbers: front=3x2, side=1x4.
+      local default_w = orientation == "side" and 1 or 3
+      local default_h = orientation == "side" and 4 or 2
+      local w = d.w or default_w
+      local h = d.h or default_h
       assertf(w >= 1 and h >= 1, "layout.desks[%d]: w and h must be >= 1", i)
       assertf(d.col + w - 1 < cols, "layout.desks[%d]: extends past cols (col=%d w=%d)", i, d.col, w)
       assertf(d.row + h - 1 < rows, "layout.desks[%d]: extends past rows (row=%d h=%d)", i, d.row, h)
-      desks[i] = { col = d.col, row = d.row, w = w, h = h }
+      desks[i] = { col = d.col, row = d.row, w = w, h = h, orientation = orientation }
     end
-  end
-
-  -- Chairs are auto-derived from seats: one back-facing chair at each seat tile.
-  local chairs = {}
-  for _, s in ipairs(seats) do
-    chairs[#chairs + 1] = { col = s.col, row = s.row, orientation = "back" }
   end
 
   local blocked = {}
   for k, _ in pairs(walls) do blocked[k] = true end
-  -- Each desk blocks every tile in its w x h footprint.
+  -- Desk tiles are blocked, with one exception: when a desk's anchor row is
+  -- at row 1 (top of playable area), the topmost row of a side-desk sits
+  -- outside the visible office — no collision needed there. For simplicity
+  -- we still mark every footprint tile as blocked; pathfinder won't care.
+  local is_desk = {}
   for _, d in ipairs(desks) do
     for dc = 0, d.w - 1 do
       for dr = 0, d.h - 1 do
-        blocked[tile_key(d.col + dc, d.row + dr)] = true
+        local k = tile_key(d.col + dc, d.row + dr)
+        blocked[k] = true
+        is_desk[k] = true
       end
     end
   end
 
   -- Annotate each seat with a facing direction: toward the nearest adjacent
-  -- blocked tile (desk / wall). Prefer N > S > E > W. Default "up" (most
-  -- common convention for an office where desks line the north wall).
+  -- DESK tile (preferred) or fall back to blocked (wall) tile. Prefer
+  -- horizontal orientations (L/R) over vertical (U/D) when both are
+  -- available so side-desks produce profile-facing characters even if a
+  -- wall happens to be behind the chair.
   for _, s in ipairs(seats) do
-    if blocked[tile_key(s.col, s.row - 1)] then
-      s.facing = "up"
-    elseif blocked[tile_key(s.col, s.row + 1)] then
-      s.facing = "down"
-    elseif blocked[tile_key(s.col + 1, s.row)] then
-      s.facing = "right"
-    elseif blocked[tile_key(s.col - 1, s.row)] then
-      s.facing = "left"
-    else
-      s.facing = "up"
-    end
+    local L = tile_key(s.col - 1, s.row)
+    local R = tile_key(s.col + 1, s.row)
+    local U = tile_key(s.col, s.row - 1)
+    local D = tile_key(s.col, s.row + 1)
+    if is_desk[L] then s.facing = "left"
+    elseif is_desk[R] then s.facing = "right"
+    elseif is_desk[U] then s.facing = "up"
+    elseif is_desk[D] then s.facing = "down"
+    elseif blocked[U] then s.facing = "up"
+    elseif blocked[D] then s.facing = "down"
+    elseif blocked[R] then s.facing = "right"
+    elseif blocked[L] then s.facing = "left"
+    else s.facing = "up" end
+  end
+
+  -- Chairs are auto-derived from seats. Orientation mirrors the seat's
+  -- facing so the chair visually agrees with the character's pose:
+  --   facing up    -> chair back   (character has back to viewer — legacy behavior)
+  --   facing down  -> chair front  (rare; character faces viewer)
+  --   facing right -> chair side   (default side sprite, chair faces right)
+  --   facing left  -> chair side-left (mirrored side sprite)
+  local chairs = {}
+  for _, s in ipairs(seats) do
+    local o
+    if s.facing == "down" then o = "front"
+    elseif s.facing == "right" then o = "side"
+    elseif s.facing == "left" then o = "side-left"
+    else o = "back" end
+    chairs[#chairs + 1] = { col = s.col, row = s.row, orientation = o }
   end
 
   return {

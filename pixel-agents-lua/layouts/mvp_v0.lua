@@ -1,21 +1,24 @@
 -- MVP v0 starter office layout.
--- 20 cols x 11 rows. Door on the left edge; 4 DESK_FRONT (3-wide each) with
--- WOODEN_CHAIR_BACK seats directly in front. Border walls on all sides.
+-- 20 cols × 11 rows. Door on the left edge. 4 vertical DESK_SIDE desks
+-- paired with side-facing WOODEN_CHAIR_SIDE chairs so we see characters in
+-- profile (arms/hands animating on the keyboard) instead of from behind.
 --
 -- Grid coords (col=0 left, row=0 top):
 --
---   col: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
--- row 0  W W W W W W W W W W W W W W W W W W W W
--- row 1  W . . . . . . . . . . . . . . . . . . W
--- row 2  W . . . D D D . D D D . D D D . D D D W    <- DESK_FRONT (3-wide) x 4
--- row 3  W . . . . s . . . s . . . s . . . s . W    <- chairs/seats at cols 5, 9, 13, 17
--- row 4  W . . . . . . . . . . . . . . . . . . W
--- row 5  D . . . . . . . . . . . . . . . . . . W    <- door at col 0
+--   col: 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19
+-- row 0  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W
+-- row 1  W  .  D  .  .  .  D  .  .  .  .  .  .  D  .  .  .  D  .  W
+-- row 2  W  .  D  s₁ .  .  D  s₂ .  .  .  .  s₃ D  .  .  s₄ D  .  W
+-- row 3  W  .  D  .  .  .  D  .  .  .  .  .  .  D  .  .  .  D  .  W
+-- row 4  W  .  D  .  .  .  D  .  .  .  .  .  .  D  .  .  .  D  .  W
+-- row 5  D  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  .  W    <- door at col 0
 -- rows 6-9: walkable floor
--- row 10 W W W W W W W W W W W W W W W W W W W W
+-- row 10 W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W  W
 --
--- Desk anchor = top-left of its 3x1 footprint. Chair/seat is the single tile
--- directly south-middle of the desk, e.g. DESK at (4,2) -> seat at (5,3).
+-- Seat is the single tile immediately east (D1/D2) or west (D3/D4) of each
+-- desk. Loader derives seat facing from adjacent desk tiles:
+--   s1, s2 → desk to the WEST → facing "left"  (chair orientation: side-left)
+--   s3, s4 → desk to the EAST → facing "right" (chair orientation: side)
 
 local COLS, ROWS = 20, 11
 
@@ -35,20 +38,22 @@ for r = 1, ROWS - 2 do
   add_wall(COLS - 1, r)
 end
 
--- Four desks, each 3 tiles wide on row 2.
+-- Four side-desks (1 wide × 4 tall each). Footprint defaults from orientation
+-- in the loader, so we only need to set anchor + orientation.
 local desks = {
-  { col = 4,  row = 2, w = 3, h = 1 },
-  { col = 8,  row = 2, w = 3, h = 1 },
-  { col = 12, row = 2, w = 3, h = 1 },
-  { col = 16, row = 2, w = 3, h = 1 },
+  { col = 2,  row = 1, orientation = "side" },
+  { col = 6,  row = 1, orientation = "side" },
+  { col = 13, row = 1, orientation = "side" },
+  { col = 17, row = 1, orientation = "side" },
 }
 
--- Seats sit on the middle tile directly south of each desk.
+-- Seats beside each desk, on the desk's middle row (row 2). Characters will
+-- be picked up as facing the desk by the loader's adjacency scan.
 local seats = {
-  { id = "s1", col = 5,  row = 3 },
-  { id = "s2", col = 9,  row = 3 },
-  { id = "s3", col = 13, row = 3 },
-  { id = "s4", col = 17, row = 3 },
+  { id = "s1", col = 3,  row = 2 },   -- east of D1 -> faces left
+  { id = "s2", col = 7,  row = 2 },   -- east of D2 -> faces left
+  { id = "s3", col = 12, row = 2 },   -- west of D3 -> faces right
+  { id = "s4", col = 16, row = 2 },   -- west of D4 -> faces right
 }
 
 return {
@@ -58,7 +63,6 @@ return {
   walls = walls,
   desks = desks,
   seats = seats,
-  -- chairs are auto-derived from seats by the loader (one back-facing chair
-  -- per seat tile), so we don't repeat them here.
+  -- chairs are auto-derived from seats; orientation follows seat.facing.
   default_floor = "floor_0",
 }
