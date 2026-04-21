@@ -1,0 +1,29 @@
+-- Layout shape documentation (comments only, no runtime behavior).
+--
+-- The RAW layout returned from a `layouts/*.lua` file:
+--
+--   {
+--     version = 1,
+--     size    = { cols = <int>, rows = <int> },           -- required
+--     door    = { col = <int>, row = <int> },             -- required
+--     seats   = { { id = <string>, col = <int>, row = <int> }, ... },  -- required, non-empty
+--     walls   = { { col, row }, ... },                    -- optional
+--     desks   = { { col, row }, ... },                    -- optional (visual + blocking)
+--     default_floor = <string>,                           -- optional, e.g. "floor_0"
+--   }
+--
+-- The PROCESSED layout returned by `loader.validate` / `loader.load`:
+--
+--   {
+--     size    = { cols, rows },
+--     door    = { col, row },
+--     seats   = { { id, col, row }, ... },                -- order preserved
+--     walls   = { [key("col,row")] = true, ... },         -- set for O(1) lookup
+--     desks   = { { col, row }, ... },
+--     blocked = { [key] = true, ... },                    -- union of walls + desks (used by pathfinder)
+--     default_floor = <string>,
+--   }
+--
+-- `key(col, row)` is the tile serialization `tostring(col) .. "," .. tostring(row)`.
+
+return {}
