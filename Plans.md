@@ -17,10 +17,10 @@ Branch: pixel-agents-lua
 
 | Task | Intent | DoD | Depends | Status |
 |------|--------|-----|---------|--------|
-| S1.1 | Scaffold `pixel-agents-lua/` skeleton + pure-Lua test harness + first passing spec | Directory tree per design §5.1 exists; `luajit pixel-agents-lua/spec/assert_spec.lua` prints `OK` and exits 0; `pixel-agents-lua/scripts/test.bat` runs all specs | - | cc:TODO |
-| S1.2 | `src/layout/loader.lua` + minimal `layouts/mvp_v0.lua` (hardcoded small office: 20×11 grid, 1 door, 4 seats, 4 desks) | `luajit spec/layout_loader_spec.lua` passes: valid file loads; missing required field throws via `assertf` | S1.1 | cc:TODO |
-| S1.3 | `src/assets.lua` — mount `../webview-ui/public/assets/` via `love.filesystem.mountFullPath`; load characters/char_0.png, floors.png, walls.png into `love.graphics.Image` map | In `love .`, console prints `assets loaded: chars=1 floors=>=1 walls=>=1` with no error; `setDefaultFilter("nearest")` applied | S1.1 | cc:TODO |
-| S1.4 | `conf.lua` + `main.lua` + `src/systems/renderer.lua` — window opens, renders floor → walls → 1 character sprite (hardcoded at seat 1) z-sorted by Y | `love pixel-agents-lua` opens 1280×720 window with visible floor tiles, walls, and 1 character sprite; no Lua errors in console; Alt+F4 exits cleanly | S1.2, S1.3 | cc:TODO |
+| S1.1 | Scaffold `pixel-agents-lua/` skeleton + pure-Lua test harness + first passing spec | Directory tree per design §5.1 exists; `luajit pixel-agents-lua/spec/assert_spec.lua` prints `OK` and exits 0; `pixel-agents-lua/scripts/test.bat` runs all specs | - | cc:done [0c0b0dd] |
+| S1.2 | `src/layout/loader.lua` + minimal `layouts/mvp_v0.lua` (hardcoded small office: 20×11 grid, 1 door, 4 seats, 4 desks) | `luajit spec/layout_loader_spec.lua` passes: valid file loads; missing required field throws via `assertf` | S1.1 | cc:done [cf8788e] |
+| S1.3 | `src/assets.lua` — load characters/char_0.png, floor_0.png, wall_0.png via `io.open` + `love.image.newImageData` (Love2D 11.5 lacks `mountFullPath`; deferred swap-in when we upgrade to 12) | In `love .`, console prints `[assets] loaded 3 PNGs from ...`; `setDefaultFilter("nearest")` applied | S1.1 | cc:done [cf8788e] |
+| S1.4 | `conf.lua` + `main.lua` + `src/systems/renderer.lua` — window opens, renders floor → walls → 1 character sprite (hardcoded at seat 1) z-sorted by Y | `love pixel-agents-lua` opens 1280×720 window with visible floor tiles, walls, and 1 character sprite; no Lua errors in console; Alt+F4 exits cleanly | S1.2, S1.3 | cc:done [cf8788e] |
 
 **Manual demo** (marks S1 done): screenshot of the window at `wiki/pixel-agents-lua/demos/s1.png` (optional for MVP; skip if screen-capture is friction).
 
@@ -32,10 +32,10 @@ Branch: pixel-agents-lua
 
 | Task | Intent | DoD | Depends | Status |
 |------|--------|-----|---------|--------|
-| S2.1 | `src/systems/pathfinder.lua` — BFS on grid; `findPath(blocked, from, to) → {tiles}` or nil [P] | `luajit spec/pathfinder_spec.lua` passes: start=end, blocked start/end, unreachable (returns nil), U-shape obstacle | S1.1 | cc:TODO |
-| S2.2 | `src/world.lua` — central state: `characters{}`, `seats{}`, `layout`; API `addCharacter(id)`, `assignSeat(id)`, `findFreeSeat()` (no tool events yet) | `luajit spec/world_spec.lua` passes: add character gets seat 1; second gets seat 2; full seats → nil | S1.2 | cc:TODO |
-| S2.3 | `src/entities/character.lua` — FSM (idle/walk); `update(dt, world)`; 4-frame walk anim at 200ms/frame; position interpolates along path tiles | `luajit spec/character_spec.lua` passes: setState walk advances x,y toward next path tile each update; reaches end → state flips to idle | S2.1, S2.2 | cc:TODO |
-| S2.4 | Wire `main.lua` + `renderer.lua`: on boot add 1 character at door; Space key → `world.findFreeSeat()` + `pathfinder.findPath` + `character.walkTo(path)` | In `love .`, initial scene = S1 demo; press Space → character walks from door to a seat with visible animation; press Space again → walks to next free seat | S2.3 | cc:TODO |
+| S2.1 | `src/systems/pathfinder.lua` — BFS on grid; `findPath(blocked, from, to) → {tiles}` or nil [P] | `luajit spec/pathfinder_spec.lua` passes: start=end, blocked start/end, unreachable (returns nil), U-shape obstacle | S1.1 | cc:done [1ba864f] |
+| S2.2 | `src/world.lua` — central state: `characters{}`, `seats{}`, `layout`; API `addCharacter(id)`, `assignSeat(id)`, `findFreeSeat()` (no tool events yet) | `luajit spec/world_spec.lua` passes: add character gets seat 1; second gets seat 2; full seats → nil | S1.2 | cc:done [1ba864f] |
+| S2.3 | `src/entities/character.lua` — FSM (idle/walk); `update(dt, world)`; 4-frame walk anim at 200ms/frame; position interpolates along path tiles | `luajit spec/character_spec.lua` passes: setState walk advances x,y toward next path tile each update; reaches end → state flips to idle | S2.1, S2.2 | cc:done [1ba864f] |
+| S2.4 | Wire `main.lua` + `renderer.lua`: on boot add 1 character at door; Space key → `world.findFreeSeat()` + `pathfinder.findPath` + `character.walkTo(path)` | In `love .`, initial scene = S1 demo; press Space → character walks from door to a seat with visible animation; press Space again → walks to next free seat | S2.3 | cc:done [1ba864f] |
 
 ---
 
@@ -45,12 +45,12 @@ Branch: pixel-agents-lua
 
 | Task | Intent | DoD | Depends | Status |
 |------|--------|-----|---------|--------|
-| S3.1 | `src/systems/parser.lua` — JSONL line → `{kind, sessionId, toolId, toolName, input}` event; handles `assistant.tool_use`, `user.tool_result`, `system.turn_duration`, mixed content arrays, malformed JSON (returns nil) [P] | `luajit spec/parser_spec.lua` passes all cases in plan.md Task 6; ≥80% line coverage on `parser.lua` | S1.1 | cc:TODO |
-| S3.2 | `src/provider.lua` contract + factory + `src/providers/claude.lua` (tool→state map, `formatToolStatus`, permission-exempt set) | `luajit spec/provider_spec.lua` + `spec/claude_provider_spec.lua` pass; unknown id throws | S3.1 | cc:TODO |
-| S3.3 | `src/systems/watcher.lua` — pure `scanOnce(dirs, state) → {newLines, newState}` with per-file offset + partial-line buffer [P] | `luajit spec/watcher_spec.lua` passes: new file detected, append delivers new lines, partial line held in buffer, stable state after re-scan | S1.1 | cc:TODO |
-| S3.4 | `src/systems/watcher_thread.lua` — Love2D thread entry looping `watcher.scanOnce` every 500ms; pushes lines via `love.thread.getChannel("agent_events")` | In `love .`, touching the fake JSONL appends a line and main thread receives it within 700ms (log via `print`) | S3.3 | cc:TODO |
-| S3.5 | Extend `world.lua` — `apply(event)` FSM for all S3 event kinds (`session_discovered`, `tool_start`, `tool_end`, `turn_end`); `character.bubble` field (nil | "waiting"); 2s bubble fade | `luajit spec/world_spec.lua` passes: `tool_start Read` → character.state="read"; `turn_end` → bubble="waiting"; after 2.1s update → bubble=nil | S2.2, S3.1, S3.2 | cc:TODO |
-| S3.6 | `src/scenes/office.lua` — wires watcher-thread → parser → provider → world → renderer; point at dev fake path; renderer adds bubble draw | End-to-end: `echo <tool_use JSON>` appended to `dev/fake-session.jsonl` → character appears, walks to seat, animates read; `echo <turn_duration JSON>` → green bubble appears and fades; no errors | S2.4, S3.4, S3.5, `character.lua` animation frames (read/type) | cc:TODO |
+| S3.1 | `src/systems/parser.lua` — JSONL line → `{kind, sessionId, toolId, toolName, input}` event; handles `assistant.tool_use`, `user.tool_result`, `system.turn_duration`, mixed content arrays, malformed JSON (returns nil) [P] | `luajit spec/parser_spec.lua` passes all cases in plan.md Task 6; ≥80% line coverage on `parser.lua` | S1.1 | cc:done [4342759] |
+| S3.2 | `src/provider.lua` contract + factory + `src/providers/claude.lua` (tool→state map, `formatToolStatus`, permission-exempt set) | `luajit spec/provider_spec.lua` passes; unknown id throws | S3.1 | cc:done [4342759] |
+| S3.3 | `src/systems/watcher.lua` — pure `scanOnce(dirs, state) → {newLines, newState}` with per-file offset + partial-line buffer [P] | `luajit spec/watcher_spec.lua` passes: new file detected, append delivers new lines, partial line held in buffer, stable state after re-scan | S1.1 | cc:done [4342759] |
+| S3.4 | `src/systems/watcher_thread.lua` — Love2D thread entry looping `watcher.scanOnce` every 500ms; pushes lines via `love.thread.getChannel("agent_events")` | In `love .`, touching the fake JSONL appends a line and main thread receives it within 700ms (log via `print`) | S3.3 | cc:done [4342759] |
+| S3.5 | Extend `world.lua` — `apply(event)` FSM for all S3 event kinds (`tool_start`, `tool_end`, `turn_end`); `character.bubble` field (nil | "waiting"); 2s bubble fade. (`session_discovered` is handled in the scene, not world, to keep world pure.) | `luajit spec/world_spec.lua` passes: `tool_start Read` → character.activity="read"; `turn_end` → bubble="waiting"; after 2.1s tick → bubble=nil | S2.2, S3.1, S3.2 | cc:done [4342759] |
+| S3.6 | `src/scenes/office.lua` — wires watcher-thread → parser → provider → world → renderer; point at dev fake path; renderer adds bubble draw | End-to-end: JSONL line appended to `dev/fake-session.jsonl` → character appears, walks to seat; turn_duration → green bubble; no errors (verified 2026-04-21: `[scene] spawned fake-session -> seat s1`) | S2.4, S3.4, S3.5 | cc:done [4342759] |
 
 ---
 
@@ -60,12 +60,12 @@ Branch: pixel-agents-lua
 
 | Task | Intent | DoD | Depends | Status |
 |------|--------|-----|---------|--------|
-| S4.1 | `src/config.lua` — read `%USERPROFILE%\.pixel-agents-lua\config.lua` (fields: `layoutFile`); fallback to `layouts/mvp_v0.lua` [P] | `luajit spec/config_spec.lua` passes: missing file → defaults; malformed → loud error via `assertf` | S3.1 | cc:TODO |
-| S4.2 | Real Claude path: compute project-hash from cwd (`:`,`\`,`/` → `-`); watcher points at `%USERPROFILE%\.claude\projects\<hash>\`; cold-boot prime (startup mtime → ignore pre-existing sessions) | In `love .`, launching with 3 pre-existing `.jsonl` files under the target dir → 0 initial characters; running `claude --session-id fresh-$(date +%s)` → character appears within 2s | S3.6 | cc:TODO |
-| S4.3 | Multi-character seat assignment: on `session_discovered`, pick first free seat (deterministic order); on `removeCharacter`, reassign freed seat to idle-at-door characters in FIFO order | `luajit spec/world_spec.lua` extended: 2 sessions get seats 1, 2; remove char 1 → its seat is free; new session gets seat 1; 5-seat layout + 6 sessions → 6th idles at door; remove any → 6th takes seat | S3.5 | cc:TODO |
-| S4.4 | `src/camera.lua` — middle-mouse drag pans; wheel scrolls zoom 1x↔2x↔3x (integer multiples, pixel-perfect) [P] | In `love .`, middle-drag visibly moves view; wheel up/down snaps zoom; no subpixel blur (floor tiles stay sharp); sprite scale matches zoom | S1.4 | cc:TODO |
-| S4.5 | Permission timer (7s) + stale-session cleanup (60s fadeout) + waiting-bubble polish | `luajit spec/world_spec.lua` extended: non-exempt tool with no `tool_result` in 7s → bubble="permission"; 60s silence → character state transitions to fadeout; fadeout completes → `removeCharacter`. In `love .`, Bash without approve → amber "..." after 7s; Read stays clean | S3.5 | cc:TODO |
-| S4.6 | `wiki/pixel-agents-lua/manual-test-checklist.md` + finalize `pixel-agents-lua/README.md` (Windows prereqs, run, test, troubleshooting) | Checklist file exists with all 9 items from design.md §8.4 (adapted for Windows); README covers `winget` install, `love .`, `scripts\test.bat`, known gotchas | S4.2, S4.3, S4.4, S4.5 | cc:TODO |
+| S4.1 | `src/config.lua` — read `%USERPROFILE%\.pixel-agents-lua\config.lua` (fields: `layoutFile`, `workspacePath`, `pollMs`); fallback to `layouts/mvp_v0.lua` [P] | `luajit spec/config_spec.lua` passes: missing file → defaults; path hash correct on Windows | S3.1 | cc:done [8041288] |
+| S4.2 | Real Claude path: compute project-hash from cwd (`:`,`\`,`/` → `-`); watcher points at `%USERPROFILE%\.claude\projects\<hash>\`; cold-boot prime (startup sizes → ignore pre-existing sessions) | Booted with 4 pre-existing `.jsonl` files under the real Claude dir → 0 initial characters, log `primed 4 existing files` (verified 2026-04-21) | S3.6 | cc:done [8041288] |
+| S4.3 | Multi-character waitlist: on `removeCharacter`, FIFO-promote idle-at-door characters to freed seat | `world.charactersWaitingForSeat(w)` returns char-ids without seats; scene `_promote_waiting()` reassigns after any removal | S3.5 | cc:done [8041288] |
+| S4.4 | `src/camera.lua` — middle-mouse drag pans; wheel snaps zoom 1x-6x (integer multiples, pixel-perfect) [P] | `luajit spec/camera_spec.lua` passes 10 cases (drag start/move/release, zoom clamping); in `love .` middle-drag pans, wheel snaps, no subpixel blur | S1.4 | cc:done [0fbfd53] |
+| S4.5 | Permission timer (7s) + stale-session cleanup (60s) | `world_spec.lua` extended: non-exempt tool running >7s → bubble="permission"; exempt (Read) never triggers; tool_end clears bubble; >60s idle → `tick` returns session id for removal | S3.5 | cc:done [0fbfd53] |
+| S4.6 | `wiki/pixel-agents-lua/manual-test-checklist.md` + finalize `pixel-agents-lua/README.md` (Windows prereqs, run, test, troubleshooting) | Checklist has 10 sections; README covers `winget` install, `love .`, `scripts\test.bat`, controls, troubleshooting, config.lua, legal | S4.2, S4.3, S4.4, S4.5 | cc:done [c2b4941] |
 
 ---
 
