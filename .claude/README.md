@@ -18,6 +18,12 @@ to Plans.md       one task at          return verdict
 | 2. Work  | [`skills/work`](skills/work/SKILL.md)  | [`worker`](agents/worker.md) | Implementation, project validation, commit preparation |
 | 3. Review | [`skills/review`](skills/review/SKILL.md) | [`reviewer`](agents/reviewer.md) | Multi-angle diff audit, verdict by severity |
 
+### Release-side
+
+| Skill | Owns |
+|-------|------|
+| [`skills/build`](skills/build/SKILL.md) | Package `pixel-agents-lua` as a standalone Windows `.exe`. Runs specs, then `scripts\build-exe.ps1`. Triggered by "build", "打包", "出 exe", etc. |
+
 ## Files
 
 ```
@@ -27,7 +33,8 @@ to Plans.md       one task at          return verdict
 ├── skills/
 │   ├── plan/SKILL.md           ← /plan create | add | update | sync
 │   ├── work/SKILL.md           ← /work all | <id> | --parallel N
-│   └── review/SKILL.md         ← /review [code|plan|scope] [--security]
+│   ├── review/SKILL.md         ← /review [code|plan|scope] [--security]
+│   └── build/SKILL.md          ← /build [--zip] [--console] [--skip-tests]
 ├── agents/
 │   ├── worker.md               ← single-task implementer, yellow
 │   └── reviewer.md             ← read-only multi-angle auditor, blue
