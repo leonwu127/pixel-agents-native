@@ -167,6 +167,22 @@ function M.apply(world, event, provider)
     return true
   end
 
+  -- Instant "..." bubble from a PermissionRequest hook. Sticky until the
+  -- tool completes (tool_end) or a new turn starts (prompt_submit).
+  if event.kind == "permission" then
+    ch.bubble = "permission"
+    ch.bubble_ttl = nil
+    return true
+  end
+
+  -- UserPromptSubmit: clears any stale bubble from the previous turn so the
+  -- next tool_start / turn_end presents a clean slate.
+  if event.kind == "prompt_submit" then
+    ch.bubble = nil
+    ch.bubble_ttl = nil
+    return true
+  end
+
   return false
 end
 
