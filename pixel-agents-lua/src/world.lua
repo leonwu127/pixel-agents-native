@@ -207,10 +207,14 @@ function M.tick(world, dt, provider)
     end
 
     -- Permission timeout: non-exempt tool running for > PERMISSION_TIMEOUT.
+    -- In hooks mode (ch.hookDelivered) the explicit PermissionRequest hook
+    -- is authoritative, so we skip this polling-driven heuristic to avoid
+    -- double-firing.
     if ch.tool_running_time
         and ch.tool_running_time > M.PERMISSION_TIMEOUT
         and ch.active_tool_name
         and ch.bubble ~= "permission"
+        and not ch.hookDelivered
         and provider
         and not provider.permissionExemptTools[ch.active_tool_name] then
       ch.bubble = "permission"

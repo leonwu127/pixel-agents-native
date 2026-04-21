@@ -6,6 +6,7 @@ local world = require("src.world")
 local character = require("src.entities.character")
 local pathfinder = require("src.systems.pathfinder")
 local renderer = require("src.systems.renderer")
+local hook_events = require("src.systems.hook_events")
 
 local M = {}
 M.__index = M
@@ -110,6 +111,47 @@ function M:_on_line_msg(msg)
   world.apply(self.world, event, self.provider)
 end
 
+-- Handle a single normalized hook event. Spawn/despawn happen at scene level
+-- (they touch seat assignment + pathfinding); everything else is delegated
+-- to world.apply. Every hook event marks its character as hook-delivered so
+-- the polling-driven permission timer in world.tick() doesn't double-fire.
+function M:_on_hook_event(event)
+  local sid = event.sessionId
+  if not sid then return end
+
+  if event.kind == "spawn" then
+    self:_spawn_character(sid)
+    local ch = world.getCharacter(self.world, sid)
+    if ch then ch.hookDelivered = true end
+    return
+  end
+
+  if event.kind == "despawn" then
+    if world.getCharacter(self.world, sid) then
+      print(string.format("[scene] hook despawn %s", sid))
+      self:removeCharacter(sid)
+    end
+    return
+  end
+
+  -- For all other kinds the character must already exist. Unknown sessions
+  -- are silently dropped (we don't spawn on e.g. PreToolUse, which can fire
+  -- for sub-agents — deferred feature, see BACKLOG P2).
+  local ch = world.getCharacter(self.world, sid)
+  if not ch then return end
+  ch.hookDelivered = true
+  world.apply(self.world, event, self.provider)
+end
+
+function M:_drain_hook_events(messages)
+  for _, msg in ipairs(messages or {}) do
+    if msg.kind == "event" and msg.providerId == "claude" then
+      local norm = hook_events.normalize(msg.event)
+      if norm then self:_on_hook_event(norm) end
+    end
+  end
+end
+
 function M:_drain_events()
   local ch = love.thread.getChannel(EVENTS_CHANNEL)
   while true do
@@ -126,8 +168,9 @@ function M:_drain_events()
   end
 end
 
-function M:update(dt)
+function M:update(dt, hook_messages)
   self:_drain_events()
+  if hook_messages then self:_drain_hook_events(hook_messages) end
   if dt > 0.1 then dt = 0.1 end
   for _, ch in ipairs(self.world.characters) do
     character.update(ch, dt)

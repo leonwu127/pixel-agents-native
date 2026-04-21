@@ -10,7 +10,7 @@ For running locally on Windows 11 after each significant change. No CI yet.
 
 ## Unit + integration tests
 
-- [ ] `pixel-agents-lua\scripts\test.bat` exits 0; reports ≥ 124 passing specs (as of S4).
+- [ ] `pixel-agents-lua\scripts\test.bat` exits 0; reports ≥ 202 passing specs (as of S5).
 
 ## Boot smoke (no Claude session running)
 
@@ -80,6 +80,20 @@ claude --session-id test-2
 - [ ] In Claude, type `/clear`. Old JSONL stops receiving lines; a new JSONL appears for the new session.
 - [ ] Original character goes silent and is removed after 60 seconds of no activity.
 - [ ] A new character spawns for the new session and walks to the next free seat.
+
+## Hooks mode (S5)
+
+**Enable first**: edit `%USERPROFILE%\.pixel-agents-lua\config.lua` and add `hooksEnabled = true`, then restart Love2D.
+
+- [ ] Boot log shows `[boot] hooks installed in ~/.claude/settings.json`.
+- [ ] `%USERPROFILE%\.pixel-agents-lua\server.json` exists; contains numeric `port`, matching `pid`, 32-hex `token`.
+- [ ] `%USERPROFILE%\.claude\settings.json` has `hooks` object with 11 event entries, each referencing `claude-hook.ps1`.
+- [ ] Running a second Love2D instance (after killing the first without graceful quit) leaves exactly one hook entry per event (idempotent install).
+- [ ] `claude --session-id hook-test-1` → character appears within ~100ms (visibly faster than polling).
+- [ ] Tool activity reacts instantly (watch console: `[hook] claude PreToolUse session=...` lines precede any polling line).
+- [ ] `/clear` → `[scene] hook despawn <sid>` in log; character fades; new character spawns for new session.
+- [ ] Closing Claude Code (Ctrl+D / exit) → character fades within 1s (SessionEnd fired).
+- [ ] Alt+F4 on Love2D → `[quit] hooks removed from ~/.claude/settings.json`; settings.json byte-identical to pre-boot state (check with `Compare-Object`).
 
 ## Clean shutdown
 

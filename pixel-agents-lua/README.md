@@ -2,7 +2,7 @@
 
 A Love2D + Lua pixel-art visualizer for running Claude Code CLI sessions. Windows 11 native.
 
-**Status** (as of 2026-04-21): S4 complete. Ready for end-to-end manual testing against real Claude sessions.
+**Status** (as of 2026-04-21): S5 complete. Hooks mode available (opt-in) for <100ms latency; polling mode still works as default/fallback.
 
 ## What it does
 
@@ -68,8 +68,19 @@ return {
   workspacePath = "C:\\Users\\me\\Projects\\some-repo",  -- overrides auto-detect
   layoutFile    = "layouts/mvp_v0.lua",
   pollMs        = 500,
+  hooksEnabled  = false,  -- opt-in; see "Hooks mode" below
 }
 ```
+
+## Hooks mode (optional, faster)
+
+Default mode polls the Claude transcript at 500ms intervals. For <100ms latency, set `hooksEnabled = true` in `config.lua` and restart.
+
+**What it does**: on boot, Love2D starts a local HTTP server on `127.0.0.1:<random>`, writes `~/.pixel-agents-lua/server.json` (port + auth token), and installs entries in `~/.claude/settings.json` pointing every hook event at `~/.pixel-agents-lua/hooks/claude-hook.ps1`. Claude then POSTs each event to Love2D the moment it fires.
+
+**Opt-in because it modifies your Claude config.** On graceful quit (Esc / close window) the hook entries are removed and `~/.claude/settings.json` is restored byte-for-byte to its pre-boot state. Hard-kill leaves entries behind, but the next clean boot dedupes + overwrites them — never duplicates.
+
+**Polling still runs** alongside hooks. Hooks drive lifecycle (spawn, idle, permission); polling continues to parse tool content. The character's `hookDelivered` flag suppresses polling's 7s permission fallback once hooks are confirmed live.
 
 ## Development
 

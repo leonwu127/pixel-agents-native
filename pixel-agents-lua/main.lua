@@ -122,16 +122,18 @@ function love.load()
 end
 
 function love.update(dt)
+  local hook_msgs = nil
   if hook_server_inst then
-    local msgs = hook_server_inst:drain()
-    for _, m in ipairs(msgs) do
+    hook_msgs = hook_server_inst:drain()
+    for _, m in ipairs(hook_msgs) do
       if m.kind == "event" then
-        print(string.format("[hook] %s %s", m.providerId, m.event.hook_event_name or "?"))
+        print(string.format("[hook] %s %s session=%s",
+          m.providerId, m.event.hook_event_name or "?", m.event.session_id or "?"))
       end
     end
     hook_server_inst:check_thread_error()
   end
-  if scene then scene:update(dt) end
+  if scene then scene:update(dt, hook_msgs) end
 end
 
 function love.draw()
