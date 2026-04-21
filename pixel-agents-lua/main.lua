@@ -11,8 +11,10 @@ require("src.providers.claude")       -- self-registers "claude"
 local world = require("src.world")
 local Office = require("src.scenes.office")
 local config = require("src.config")
+local camera_mod = require("src.camera")
 
 local scene
+local cam
 
 local function log_to_save(msg)
   love.filesystem.append("last-boot.log", msg .. "\n")
@@ -53,6 +55,8 @@ function love.load()
   })
   scene:start()
 
+  cam = camera_mod.new()
+
   log_to_save("[boot] OK")
   print(string.format("[boot] OK — watching %d dir(s); workspace=%s",
     #watch_dirs, conf.workspacePath))
@@ -63,11 +67,27 @@ function love.update(dt)
 end
 
 function love.draw()
-  if scene then scene:draw(assets) end
+  if scene then scene:draw(assets, camera_mod, cam) end
 end
 
 function love.keypressed(key)
   if key == "escape" then love.event.quit() end
+end
+
+function love.mousepressed(x, y, button)
+  if cam then camera_mod.mousepressed(cam, x, y, button) end
+end
+
+function love.mousereleased(x, y, button)
+  if cam then camera_mod.mousereleased(cam, x, y, button) end
+end
+
+function love.mousemoved(x, y)
+  if cam then camera_mod.mousemoved(cam, x, y) end
+end
+
+function love.wheelmoved(dx, dy)
+  if cam then camera_mod.wheelmoved(cam, dx, dy) end
 end
 
 function love.quit()

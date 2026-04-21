@@ -1,11 +1,11 @@
 -- Draw the office: floor -> walls -> desks -> characters -> bubbles.
+-- Assumes the caller has already applied the camera transform
+-- (love.graphics.push + translate + scale). Renderer only draws world-space.
+-- HUD is drawn in screen space by the caller after camera.pop.
 
 local character = require("src.entities.character")
 
 local TILE = 16
-local SCALE = 3
-local OFFSET_X = 40
-local OFFSET_Y = 80
 
 local BUBBLE_COLORS = {
   waiting    = { 0.2, 0.85, 0.4 },   -- green
@@ -39,10 +39,6 @@ end
 
 function M.draw(world, assets)
   local layout = world.layout
-
-  love.graphics.push()
-  love.graphics.translate(OFFSET_X, OFFSET_Y)
-  love.graphics.scale(SCALE, SCALE)
 
   -- Floor
   for r = 0, layout.size.rows - 1 do
@@ -89,14 +85,11 @@ function M.draw(world, assets)
       draw_bubble(info.bubble, bx, by)
     end
   end
+end
 
-  love.graphics.pop()
-
-  -- HUD
+function M.drawHUD(text_line)
   love.graphics.setColor(0.8, 0.8, 0.9)
-  love.graphics.print(
-    "Pixel Agents Lua — S3 Fake JSONL drives it   |   Append to dev/fake-session.jsonl   |   Esc: quit",
-    OFFSET_X, love.graphics.getHeight() - 24)
+  love.graphics.print(text_line or "", 16, love.graphics.getHeight() - 24)
   love.graphics.setColor(1, 1, 1)
 end
 

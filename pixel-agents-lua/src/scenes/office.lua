@@ -126,7 +126,15 @@ function M:update(dt)
   for _, ch in ipairs(self.world.characters) do
     character.update(ch, dt)
   end
-  world.tick(self.world, dt)
+  local stale = world.tick(self.world, dt, self.provider)
+  if stale and #stale > 0 then
+    for _, id in ipairs(stale) do
+      print(string.format("[scene] removing stale session %s (>%ds idle)",
+        id, math.floor(world.STALE_TIMEOUT)))
+      world.removeCharacter(self.world, id)
+    end
+    self:_promote_waiting()
+  end
 
   -- Surface watcher thread errors
   if self.thread then
@@ -138,8 +146,13 @@ function M:update(dt)
   end
 end
 
-function M:draw(assets)
+function M:draw(assets, camera_mod, cam)
+  camera_mod.apply(cam)
   renderer.draw(self.world, assets)
+  camera_mod.pop(cam)
+  renderer.drawHUD(
+    "Pixel Agents Lua — S4   |   Middle-drag: pan   |   Wheel: zoom   |   Esc: quit"
+  )
 end
 
 return M

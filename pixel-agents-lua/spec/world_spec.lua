@@ -179,14 +179,86 @@ end)
 
 describe("world.tick — bubble fade", function()
   it("waiting bubble disappears after ttl", function()
-    local fake_provider = { toolStateMap = {} }
+    local fake_provider = { toolStateMap = {}, permissionExemptTools = {} }
     local w = world.new(small_layout())
     world.addCharacter(w, mk_char("a"))
     world.apply(w, { kind = "turn_end", sessionId = "a" }, fake_provider)
-    world.tick(w, 1.0)
+    world.tick(w, 1.0, fake_provider)
     assert.are.equal("waiting", world.getCharacter(w, "a").bubble)
-    world.tick(w, 1.2)  -- total 2.2s > 2.0s TTL
+    world.tick(w, 1.2, fake_provider)  -- total 2.2s > 2.0s TTL
     assert.is_nil(world.getCharacter(w, "a").bubble)
+  end)
+end)
+
+describe("world.tick — permission timer", function()
+  local function prov()
+    return {
+      toolStateMap = { Bash = "type", Read = "read" },
+      permissionExemptTools = { Read = true, Grep = true },
+    }
+  end
+
+  it("sets permission bubble after 7s on a non-exempt tool", function()
+    local w = world.new(small_layout())
+    world.addCharacter(w, mk_char("a"))
+    world.apply(w, { kind = "tool_start", sessionId = "a", toolName = "Bash", toolId = "t1" }, prov())
+    world.tick(w, 3, prov())
+    assert.is_nil(world.getCharacter(w, "a").bubble)
+    world.tick(w, 4.5, prov())   -- total 7.5 > 7
+    assert.are.equal("permission", world.getCharacter(w, "a").bubble)
+  end)
+
+  it("does NOT set permission bubble on an exempt tool (Read)", function()
+    local w = world.new(small_layout())
+    world.addCharacter(w, mk_char("a"))
+    world.apply(w, { kind = "tool_start", sessionId = "a", toolName = "Read", toolId = "t1" }, prov())
+    world.tick(w, 10, prov())
+    assert.is_nil(world.getCharacter(w, "a").bubble)
+  end)
+
+  it("tool_end clears the permission bubble", function()
+    local w = world.new(small_layout())
+    world.addCharacter(w, mk_char("a"))
+    world.apply(w, { kind = "tool_start", sessionId = "a", toolName = "Bash", toolId = "t1" }, prov())
+    world.tick(w, 8, prov())
+    assert.are.equal("permission", world.getCharacter(w, "a").bubble)
+    world.apply(w, { kind = "tool_end", sessionId = "a", toolId = "t1" }, prov())
+    assert.is_nil(world.getCharacter(w, "a").bubble)
+  end)
+end)
+
+describe("world.tick — stale detection", function()
+  local function prov()
+    return { toolStateMap = {}, permissionExemptTools = {} }
+  end
+
+  it("returns ids of characters silent for > 60s", function()
+    local w = world.new(small_layout())
+    world.addCharacter(w, mk_char("old"))
+    world.addCharacter(w, mk_char("new"))
+    world.apply(w, { kind = "turn_end", sessionId = "old" }, prov())
+    world.apply(w, { kind = "turn_end", sessionId = "new" }, prov())
+    -- Advance 61s on both, then refresh "new"
+    world.tick(w, 30, prov())
+    world.apply(w, { kind = "turn_end", sessionId = "new" }, prov())
+    world.tick(w, 31, prov())
+
+    local stale = world.tick(w, 0.1, prov())
+    -- Only "old" has been silent long enough.
+    local stale_ids = {}
+    for _, id in ipairs(stale) do stale_ids[id] = true end
+    assert.is_true(stale_ids["old"] == true)
+    assert.is_nil(stale_ids["new"])
+  end)
+
+  it("any event resets idle_time", function()
+    local w = world.new(small_layout())
+    world.addCharacter(w, mk_char("a"))
+    world.apply(w, { kind = "turn_end", sessionId = "a" }, prov())
+    world.tick(w, 50, prov())
+    world.apply(w, { kind = "turn_end", sessionId = "a" }, prov())
+    local stale = world.tick(w, 10, prov())
+    assert.are.equal(0, #stale)
   end)
 end)
 

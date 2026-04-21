@@ -1,0 +1,85 @@
+package.path = "./?.lua;./?/init.lua;" .. package.path
+local helper = require("spec.helper")
+local camera = require("src.camera")
+
+describe("camera.new", function()
+  it("uses defaults", function()
+    local c = camera.new()
+    assert.are.equal(3, c.zoom)
+    assert.is_truthy(c.x and c.y)
+    assert.is_nil(c.drag)
+  end)
+
+  it("honors opts", function()
+    local c = camera.new({ x = 100, y = 200, zoom = 2 })
+    assert.are.equal(100, c.x)
+    assert.are.equal(200, c.y)
+    assert.are.equal(2, c.zoom)
+  end)
+end)
+
+describe("camera mouse drag", function()
+  it("pressing middle button starts a drag", function()
+    local c = camera.new({ x = 50, y = 60 })
+    camera.mousepressed(c, 200, 100, 3)
+    assert.is_not_nil(c.drag)
+  end)
+
+  it("pressing left or right does not start a drag", function()
+    local c = camera.new()
+    camera.mousepressed(c, 200, 100, 1)
+    camera.mousepressed(c, 200, 100, 2)
+    assert.is_nil(c.drag)
+  end)
+
+  it("mousemoved pans relative to drag start", function()
+    local c = camera.new({ x = 50, y = 60 })
+    camera.mousepressed(c, 200, 100, 3)
+    camera.mousemoved(c, 220, 110)  -- moved +20, +10
+    assert.are.equal(70, c.x)
+    assert.are.equal(70, c.y)
+    camera.mousemoved(c, 210, 95)   -- moved +10, -5 from start
+    assert.are.equal(60, c.x)
+    assert.are.equal(55, c.y)
+  end)
+
+  it("mousereleased on middle clears drag", function()
+    local c = camera.new()
+    camera.mousepressed(c, 0, 0, 3)
+    camera.mousereleased(c, 10, 10, 3)
+    assert.is_nil(c.drag)
+  end)
+
+  it("mousemoved without drag is a no-op", function()
+    local c = camera.new({ x = 50, y = 60 })
+    camera.mousemoved(c, 999, 999)
+    assert.are.equal(50, c.x)
+    assert.are.equal(60, c.y)
+  end)
+end)
+
+describe("camera zoom", function()
+  it("wheel up increases zoom clamped to 6", function()
+    local c = camera.new({ zoom = 5 })
+    camera.wheelmoved(c, 0, 1)
+    assert.are.equal(6, c.zoom)
+    camera.wheelmoved(c, 0, 1)
+    assert.are.equal(6, c.zoom)   -- clamp
+  end)
+
+  it("wheel down decreases zoom clamped to 1", function()
+    local c = camera.new({ zoom = 2 })
+    camera.wheelmoved(c, 0, -1)
+    assert.are.equal(1, c.zoom)
+    camera.wheelmoved(c, 0, -1)
+    assert.are.equal(1, c.zoom)   -- clamp
+  end)
+
+  it("zero dy does nothing", function()
+    local c = camera.new({ zoom = 3 })
+    camera.wheelmoved(c, 1, 0)
+    assert.are.equal(3, c.zoom)
+  end)
+end)
+
+helper.run()

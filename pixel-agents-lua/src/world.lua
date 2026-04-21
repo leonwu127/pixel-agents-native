@@ -97,16 +97,21 @@ end
 -- ============================================================
 
 local BUBBLE_WAITING_TTL = 2.0
+M.PERMISSION_TIMEOUT = 7.0
+M.STALE_TIMEOUT = 60.0
 
 function M.apply(world, event, provider)
   local ch = M.getCharacter(world, event.sessionId)
   if not ch then return false end
 
+  -- Any event resets the character's idle-stale timer.
+  ch.idle_time = 0
+
   if event.kind == "tool_start" then
     ch.active_tool_id = event.toolId
     ch.active_tool_name = event.toolName
     ch.activity = provider.toolStateMap[event.toolName or ""] or nil
-    -- New activity clears any waiting bubble.
+    ch.tool_running_time = 0
     ch.bubble = nil
     ch.bubble_ttl = nil
     return true
@@ -117,6 +122,12 @@ function M.apply(world, event, provider)
       ch.active_tool_id = nil
       ch.active_tool_name = nil
       ch.activity = nil
+      ch.tool_running_time = nil
+      -- tool_end clears a sticky permission bubble.
+      if ch.bubble == "permission" then
+        ch.bubble = nil
+        ch.bubble_ttl = nil
+      end
     end
     return true
   end
@@ -125,6 +136,10 @@ function M.apply(world, event, provider)
     ch.activity = nil
     ch.active_tool_id = nil
     ch.active_tool_name = nil
+    ch.tool_running_time = nil
+    if ch.bubble == "permission" then
+      ch.bubble = nil
+    end
     ch.bubble = "waiting"
     ch.bubble_ttl = BUBBLE_WAITING_TTL
     return true
@@ -133,9 +148,18 @@ function M.apply(world, event, provider)
   return false
 end
 
--- Time-based effects: fade bubbles.
-function M.tick(world, dt)
+-- Advance timers on every character. Returns a list of session ids that are
+-- stale (no event for STALE_TIMEOUT seconds) — caller removes them.
+-- `provider` is required for the permission-exempt check on active tools.
+function M.tick(world, dt, provider)
+  local stale = {}
   for _, ch in ipairs(world.characters) do
+    ch.idle_time = (ch.idle_time or 0) + dt
+
+    if ch.tool_running_time then
+      ch.tool_running_time = ch.tool_running_time + dt
+    end
+
     if ch.bubble_ttl then
       ch.bubble_ttl = ch.bubble_ttl - dt
       if ch.bubble_ttl <= 0 then
@@ -143,7 +167,23 @@ function M.tick(world, dt)
         ch.bubble_ttl = nil
       end
     end
+
+    -- Permission timeout: non-exempt tool running for > PERMISSION_TIMEOUT.
+    if ch.tool_running_time
+        and ch.tool_running_time > M.PERMISSION_TIMEOUT
+        and ch.active_tool_name
+        and ch.bubble ~= "permission"
+        and provider
+        and not provider.permissionExemptTools[ch.active_tool_name] then
+      ch.bubble = "permission"
+      ch.bubble_ttl = nil       -- sticky until tool_end
+    end
+
+    if ch.idle_time > M.STALE_TIMEOUT then
+      stale[#stale + 1] = ch.id
+    end
   end
+  return stale
 end
 
 return M
