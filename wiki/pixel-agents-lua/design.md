@@ -21,7 +21,7 @@ A Love2D + Lua desktop application that visualizes running AI agents as pixel-ar
 
 ### 1.3 What "MVP" means here
 
-A version where, starting from an empty window, the user can open a WSL terminal, run `claude --session-id <uuid>`, and within ~1 second see a pixel character appear in the office and react to Claude's activity in real time.
+A version where, starting from an empty window, the user can open a PowerShell window, run `claude --session-id <uuid>`, and within ~1 second see a pixel character appear in the office and react to Claude's activity in real time.
 
 ### 1.4 Core experience (product positioning)
 
@@ -59,7 +59,7 @@ Explicitly not a game, not a Tamagotchi, not a sim. Those are deferred indefinit
 ### 2.3 Non-goals
 
 - Supporting Codex/OpenCode in MVP (architecturally possible via Provider interface, but not implemented)
-- Windows-native or macOS support in MVP (WSL2 on Windows 11 only)
+- WSL2, macOS, or Linux-native support in MVP (**Windows 11 native only** — per D10)
 - Packaging as `.love` / exe for distribution (dev-mode only — `love .`)
 
 ---
@@ -74,9 +74,12 @@ Explicitly not a game, not a Tamagotchi, not a sim. Those are deferred indefinit
 | D4 | Borrow all PNG assets from `pixel-agents-native` | Fastest path to visual parity; character asset license review deferred to pre-distribution |
 | D5 | MVP v0 uses a simplified Lua layout format, not the original's full `default-layout.json` schema | Original schema (rotation groups, state groups, wall bitmask, per-tile color, surface placement, background rows) is far too complex for MVP |
 | D6 | Passive watcher model — user spawns Claude from their own terminals | Love2D cannot reliably spawn terminal emulators cross-platform; original had VS Code Terminal API as crutch |
-| D7 | WSL2 on Windows 11 only for MVP | User's primary dev environment; avoids cross-filesystem issues |
+| D7 | ~~WSL2 on Windows 11 only for MVP~~ **Superseded by D10 on 2026-04-21** | Original rationale (cross-filesystem avoidance) was cautious; user reversed to simplify integration with native Claude CLI |
 | D8 | Subdirectory `/pixel-agents-lua/` in current repo (not sibling repo) | Faster iteration, easy asset reuse; `git subtree split` later if independent repo needed |
 | D9 | Love2D-idiomatic architecture (route 2 of 3): scenes + systems + `love.thread` for IO | Leverages Love2D strengths, avoids TS-to-Lua transliteration pitfalls |
+| D10 | **Windows native on Windows 11** (replaces D7) | User's actual dev environment; Claude CLI runs natively; no WSL mount friction; JSONL at `%USERPROFILE%\.claude\projects\`; path separators need awareness (LuaJIT accepts both `/` and `\`) |
+| D11 | **Vertical slicing** (S1→S4): each slice produces a runnable demo, later slices evolve from earlier ones without rewrites | Replaces the original horizontal Phase 0→3 (scaffold → pure-logic → love2d-integrate → polish). Value shows up early; faster feedback; fewer dead-end refactors |
+| D12 | **Pure-Lua test harness** (`spec/helper.lua`, ~60 lines, busted-compatible `describe`/`it`/`assert.are.equal` API) | LuaRocks' `busted` pulls in `luasystem` which needs MSVC/gcc to build on Windows; we have neither and installing MSVC Build Tools is disproportionate for an MVP visualizer. The harness uses zero C deps, runs on bare `luajit.exe`, and matches busted API 1:1 so we can swap in real busted later with no spec changes |
 
 ---
 
@@ -126,11 +129,11 @@ love.draw():
 
 ### 4.4 Runtime dependencies
 
-- Lua 5.1 (Love2D default)
-- Love2D ≥ 11.x
-- `json.lua` (pure-Lua JSON parser — no C extensions)
-- `luafilesystem` (directory scanning; Love2D's built-in `love.filesystem` only sees the game dir)
-- `busted` (tests only, not runtime)
+- **Love2D 11.5** (bundles LuaJIT 2.1, which is Lua 5.1 compatible) — installed via `winget install Love2d.Love2d`
+- **LuaJIT 2.1** + **LuaRocks 3.11** — installed via `winget install DEVCOM.LuaJIT` at `%LOCALAPPDATA%\Programs\LuaJIT\bin\`. Used for running tests (and any `luajit` scripting) outside Love2D.
+- `json.lua` (rxi/json.lua, vendored at `src/vendor/json.lua`) — pure Lua, no C ext
+- **Directory scanning**: `love.filesystem.mountFullPath` + `getDirectoryItems` (Love2D 11.0+ API). Avoids the `luafilesystem` C extension, which would require MSVC/gcc to build.
+- **Tests**: pure-Lua `spec/helper.lua` shim (`describe`/`it`/`assert.are.equal`) — per D12. Runner: `luajit spec\<name>_spec.lua`.
 
 ---
 
@@ -210,7 +213,7 @@ love.load()
 ### 6.2 New agent appears
 
 ```
-User (WSL terminal): claude --session-id abc-123
+User (PowerShell): claude --session-id abc-123
   → Claude creates ~/.claude/projects/<hash>/abc-123.jsonl
   → watcher thread (500ms poll) notices new file
   → push { kind = "session_discovered", sessionId = "abc-123", filePath = "..." }
@@ -320,7 +323,8 @@ Love2D testing splits cleanly because most modules are pure Lua.
 
 ### 8.1 Covered by unit tests (MVP required)
 
-Framework: **busted**, run as `busted spec/` — no Love2D required.
+Framework: **pure-Lua busted-compatible shim** in `spec/helper.lua` (per D12). Each spec is self-executing:
+`luajit spec\parser_spec.lua`. Batch: `scripts\test.bat` runs every `spec\*_spec.lua`. No Love2D required.
 
 | Module | What to test | Coverage target |
 |---|---|---|
@@ -364,7 +368,7 @@ Framework: **busted**, run as `busted spec/` — no Love2D required.
 
 - Visual regression (pixel diff) — maintenance > value during MVP churn
 - Performance benchmarks — Love2D's FPS overlay is enough
-- CI — local `busted` sufficient; deferred to BACKLOG
+- CI — local `luajit spec\*_spec.lua` sufficient; deferred to BACKLOG
 
 ---
 
@@ -386,6 +390,15 @@ None blocking. Items deferred to implementation:
 
 ---
 
-## 11. Next Step
+## 11. Implementation structure
 
-On approval, invoke `superpowers:writing-plans` to produce a concrete, staged implementation plan.
+**Approved 2026-04-21**: vertical slicing (D11) — each slice ships a demoable prototype and later slices evolve from earlier ones.
+
+| Slice | Deliverable (demo) | Introduces |
+|-------|--------------------|-----------|
+| **S1 — Hello Office** | `love pixel-agents-lua` opens a window and renders a static office with one hardcoded character at a fixed tile. No input, no animation. | `conf.lua`, `main.lua`, `assets.lua`, `renderer.lua`, minimal `layout/loader.lua`, `layouts/mvp_v0.lua`, pure-Lua test harness |
+| **S2 — Walk on demand** | Press Space → character walks from door to an empty seat with walk animation. | `pathfinder.lua`, `character.lua` FSM (idle/walk), minimal `world.lua` |
+| **S3 — Fake JSONL drives it** | Manually appending to a local fake `.jsonl` file triggers character to walk/animate and show a waiting bubble. | `parser.lua`, `provider.lua`, `providers/claude.lua`, `watcher.lua`, `watcher_thread.lua`, full `world.lua` FSM |
+| **S4 — Real Claude + polish** | `claude --session-id xxx` in PowerShell → character appears; multi-agent; stale cleanup; permission bubbles; camera drag+zoom; `config.lua`; cold-boot prime. | Real JSONL path (`%USERPROFILE%\.claude\projects\`), `camera.lua`, `config.lua`, permission timer, stale-session cleanup, multi-character seat assignment |
+
+Plans.md at repo root owns task-level breakdown per slice.
