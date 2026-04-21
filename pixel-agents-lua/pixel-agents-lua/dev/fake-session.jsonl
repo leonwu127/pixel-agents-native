@@ -1,2 +1,0 @@
-{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/a/main.lua"}}]}}
-{"type":"system","subtype":"turn_duration","duration_ms":1200}
