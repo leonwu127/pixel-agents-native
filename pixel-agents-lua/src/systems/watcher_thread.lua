@@ -70,9 +70,15 @@ local io_ops = {
 
 local out = love.thread.getChannel("agent_events")
 local ctrl = love.thread.getChannel("watcher_control")
-local state = watcher.new_state()
 
-out:push({ kind = "hello", dirs = dirs, pattern = file_pattern, poll_ms = poll_ms })
+-- Cold-boot prime: start with state that ignores existing file contents.
+-- Only lines appended after we start are reported as events.
+local state = watcher.prime(dirs, file_pattern, io_ops)
+
+local primed_files = 0
+for _ in pairs(state.files) do primed_files = primed_files + 1 end
+
+out:push({ kind = "hello", dirs = dirs, pattern = file_pattern, poll_ms = poll_ms, primed_files = primed_files })
 
 while true do
   if ctrl:peek() == "stop" then break end

@@ -75,6 +75,18 @@ function M.removeCharacter(world, id)
   M.releaseSeat(world, id)
 end
 
+-- Find characters that were added but have no seat (e.g. spawned while all
+-- seats were occupied). Kept in declaration order.
+function M.charactersWaitingForSeat(world)
+  local result = {}
+  local has_seat = {}
+  for sid, cid in pairs(world.seat_occupancy) do has_seat[cid] = true end
+  for _, ch in ipairs(world.characters) do
+    if not has_seat[ch.id] then result[#result + 1] = ch end
+  end
+  return result
+end
+
 -- ============================================================
 -- Per-character event FSM (S3+).
 -- Applies a normalized event to one character.

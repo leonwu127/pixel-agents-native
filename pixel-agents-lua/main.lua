@@ -10,6 +10,7 @@ local provider_mod = require("src.provider")
 require("src.providers.claude")       -- self-registers "claude"
 local world = require("src.world")
 local Office = require("src.scenes.office")
+local config = require("src.config")
 
 local scene
 
@@ -20,33 +21,41 @@ end
 function love.load()
   io.stdout:setvbuf("no")
   love.filesystem.write("last-boot.log", "")
-  log_to_save("[boot] pixel-agents-lua S3 starting")
+  log_to_save("[boot] pixel-agents-lua S4 starting")
 
   assets.load()
   log_to_save("[boot] assets loaded")
 
   local game_dir = love.filesystem.getSource()
-  local layout = loader.load(game_dir .. "/layouts/mvp_v0.lua")
+  local workspace = love.filesystem.getWorkingDirectory()
+  local conf = config.load(workspace)
+  log_to_save(string.format("[boot] workspace=%s", conf.workspacePath))
+  log_to_save(string.format("[boot] projectHash=%s", conf.projectHash))
+  log_to_save(string.format("[boot] claudeDir=%s", conf.claudeDir))
+
+  local layout = loader.load(game_dir .. "/" .. conf.layoutFile)
   local W = world.new(layout)
 
-  -- S3: the "session dir" is our own dev/ folder. S4 will replace this with
-  -- the real Claude JSONL path derived from %USERPROFILE% + project hash.
-  local fake_dir = game_dir .. "/dev"
+  -- Also include the dev/ folder for easy local testing: drop a fake JSONL
+  -- there and a character appears without needing to run `claude`.
+  local dev_dir = game_dir .. "/dev"
+  local watch_dirs = { conf.claudeDir, dev_dir }
+
   local provider = provider_mod.create("claude", {
-    session_dirs_fn = function() return { fake_dir } end,
+    session_dirs_fn = function() return watch_dirs end,
   })
 
   scene = Office.new({
     world = W,
     provider = provider,
-    dirs = { fake_dir },
-    poll_ms = 500,
+    dirs = watch_dirs,
+    poll_ms = conf.pollMs,
   })
   scene:start()
 
-  log_to_save(string.format("[boot] watching %s", fake_dir))
   log_to_save("[boot] OK")
-  print(string.format("[boot] OK — append a JSONL line to %s to trigger a character", fake_dir))
+  print(string.format("[boot] OK — watching %d dir(s); workspace=%s",
+    #watch_dirs, conf.workspacePath))
 end
 
 function love.update(dt)

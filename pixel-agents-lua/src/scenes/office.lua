@@ -41,6 +41,18 @@ function M:stop()
   end
 end
 
+function M:_walk_char_to_seat(ch, seat)
+  local w = self.world
+  world.assignSeat(w, ch.id, seat.id)
+  local path = pathfinder.findPath({
+    size = w.layout.size,
+    blocked = w.layout.blocked,
+    from = { col = ch.col, row = ch.row },
+    to = { col = seat.col, row = seat.row },
+  })
+  if path then character.walkTo(ch, path) end
+end
+
 function M:_spawn_character(session_id)
   local w = self.world
   if world.getCharacter(w, session_id) then return end
@@ -55,18 +67,28 @@ function M:_spawn_character(session_id)
 
   local seat = world.findFreeSeat(w)
   if seat then
-    world.assignSeat(w, session_id, seat.id)
-    local path = pathfinder.findPath({
-      size = w.layout.size,
-      blocked = w.layout.blocked,
-      from = { col = ch.col, row = ch.row },
-      to = { col = seat.col, row = seat.row },
-    })
-    if path then character.walkTo(ch, path) end
+    self:_walk_char_to_seat(ch, seat)
     print(string.format("[scene] spawned %s -> seat %s", session_id, seat.id))
   else
     print(string.format("[scene] spawned %s -> idle at door (no free seat)", session_id))
   end
+end
+
+-- Promote the next idle-at-door character to a freed seat, FIFO. Called
+-- after any character is removed.
+function M:_promote_waiting()
+  local waiting = world.charactersWaitingForSeat(self.world)
+  for _, ch in ipairs(waiting) do
+    local seat = world.findFreeSeat(self.world)
+    if not seat then return end
+    self:_walk_char_to_seat(ch, seat)
+    print(string.format("[scene] promoted %s -> seat %s", ch.id, seat.id))
+  end
+end
+
+function M:removeCharacter(id)
+  world.removeCharacter(self.world, id)
+  self:_promote_waiting()
 end
 
 function M:_on_line_msg(msg)
@@ -88,7 +110,8 @@ function M:_drain_events()
     local msg = ch:pop()
     if not msg then break end
     if msg.kind == "hello" then
-      print(string.format("[scene] watcher ready, watching %d dir(s)", #msg.dirs))
+      print(string.format("[scene] watcher ready, watching %d dir(s), primed %d existing files",
+        #msg.dirs, msg.primed_files or 0))
     elseif msg.kind == "line" then
       self:_on_line_msg(msg)
     elseif msg.kind == "bye" then

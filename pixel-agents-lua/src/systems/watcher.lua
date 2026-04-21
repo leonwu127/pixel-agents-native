@@ -15,6 +15,27 @@ function M.new_state()
   return { files = {} }  -- abs_path -> { offset, buffer }
 end
 
+-- Cold-boot prime: return a state that ignores everything already in the dirs.
+-- Only lines appended AFTER prime() returns will be reported by scanOnce.
+function M.prime(dirs, file_pattern, io_ops)
+  local state = { files = {} }
+  for _, dir in ipairs(dirs) do
+    local ok_list, names = pcall(io_ops.list_dir, dir)
+    if ok_list and type(names) == "table" then
+      for _, name in ipairs(names) do
+        if name:match(file_pattern) then
+          local abs = dir .. "/" .. name
+          local ok_size, size = pcall(io_ops.get_size, abs)
+          if ok_size and type(size) == "number" then
+            state.files[abs] = { offset = size, buffer = "" }
+          end
+        end
+      end
+    end
+  end
+  return state
+end
+
 -- dirs: list of absolute directory paths
 -- file_pattern: Lua string pattern; matched against filename (e.g. "%.jsonl$")
 -- state: previous state (or M.new_state())
