@@ -44,9 +44,20 @@ function M.load()
 
   -- Character: 7 frames (16 wide each) x 3 direction rows (32 tall each).
   -- Frame order per CLAUDE.md: walk1, walk2, walk3, type1, type2, read1, read2
-  -- "Idle" uses walk2 (index 1, 0-based).
+  -- Rows: 0=down, 1=up, 2=right (left mirrors right at draw-time).
   local cw, ch = M.character:getDimensions()
+  M._char_w, M._char_h = cw, ch
   M.char_idle_quad = love.graphics.newQuad(1 * 16, 0, 16, 32, cw, ch)
+
+  -- Cache one quad per (frame, dir_row) pair.
+  M._char_quads = {}
+  for dir_row = 0, 2 do
+    M._char_quads[dir_row] = {}
+    for frame = 0, 6 do
+      M._char_quads[dir_row][frame] =
+        love.graphics.newQuad(frame * 16, dir_row * 32, 16, 32, cw, ch)
+    end
+  end
 
   local fw, fh = M.floor:getDimensions()
   M.floor_quad = love.graphics.newQuad(0, 0, 16, 16, fw, fh)
@@ -57,6 +68,12 @@ function M.load()
   M.wall_quad = love.graphics.newQuad(0, 0, 16, 32, ww, wh)
 
   print(string.format("[assets] loaded 3 PNGs from %s", assets_dir))
+end
+
+-- Get the Quad for a (frame 0..6, dir_row 0..2) pair. Cached.
+function M.char_quad(frame, dir_row)
+  local row = M._char_quads[dir_row]
+  return row and row[frame] or M.char_idle_quad
 end
 
 return M

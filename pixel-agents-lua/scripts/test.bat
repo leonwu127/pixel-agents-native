@@ -11,8 +11,8 @@ if not exist "%LUAJIT%" (
 pushd "%~dp0.."
 set FAIL=0
 set RAN=0
-for %%f in (spec\*_spec.lua) do (
-  echo === %%f ===
+for /r spec %%f in (*_spec.lua) do (
+  echo === %%~pnxf ===
   "%LUAJIT%" "%%f"
   if !errorlevel! neq 0 set FAIL=1
   set /a RAN+=1
