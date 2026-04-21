@@ -87,6 +87,28 @@ function M.charactersWaitingForSeat(world)
   return result
 end
 
+-- Pick the least-used palette (0..5) across currently-seated characters.
+-- Tie-break by first-least-used (deterministic). Returns integer 0..5.
+-- Matches pixel-agents-native's pickDiversePalette algorithm.
+function M.pickDiversePalette(world, palette_count)
+  palette_count = palette_count or 6
+  local counts = {}
+  for i = 0, palette_count - 1 do counts[i] = 0 end
+  for _, ch in ipairs(world.characters) do
+    local p = ch.palette or 0
+    if counts[p] then counts[p] = counts[p] + 1 end
+  end
+  local best_idx = 0
+  local best_count = counts[0]
+  for i = 1, palette_count - 1 do
+    if counts[i] < best_count then
+      best_idx = i
+      best_count = counts[i]
+    end
+  end
+  return best_idx
+end
+
 -- ============================================================
 -- Per-character event FSM (S3+).
 -- Applies a normalized event to one character.

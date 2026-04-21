@@ -7,12 +7,17 @@
 -- `love.image.newImageData` to construct an Image.
 --
 -- Exposes:
---   assets.character          — char_0.png Image (112x96, 7 frames x 3 directions)
+--   assets.characters[0..5]   — 6 pre-colored character Images (palette 0..5)
 --   assets.char_idle_quad     — 16x32 quad for the standing frame (row 0 = down, frame 1 = walk2)
+--   assets.char_quad(palette, frame, dir_row)    — cached sprite Quad lookup
 --   assets.floor              — floor_0.png Image (16x16)
 --   assets.floor_quad         — 16x16 quad for the full floor tile
 --   assets.wall               — wall_0.png Image (64x128, 4x4 grid of 16x32 pieces)
 --   assets.wall_quad          — 16x32 quad (top-left piece of the bitmask grid)
+--   assets.desk               — DESK_FRONT.png (48x32, 3-wide 2-tall)
+--   assets.desk_quad          — 48x32 quad
+--   assets.chair              — WOODEN_CHAIR_BACK.png (16x32)
+--   assets.chair_quad         — 16x32 quad
 
 local M = {}
 
@@ -38,18 +43,27 @@ function M.load()
   local game_dir = love.filesystem.getSource()       -- absolute path to pixel-agents-lua
   local assets_dir = game_dir .. "/../webview-ui/public/assets"
 
-  M.character = load_png_abs(assets_dir .. "/characters/char_0.png")
-  M.floor     = load_png_abs(assets_dir .. "/floors/floor_0.png")
-  M.wall      = load_png_abs(assets_dir .. "/walls/wall_0.png")
+  -- Load all 6 pre-colored character sheets (char_0..5). They share the same
+  -- 112x96 layout, so a single quad set works for any palette.
+  M.characters = {}
+  for p = 0, 5 do
+    M.characters[p] = load_png_abs(assets_dir .. "/characters/char_" .. p .. ".png")
+  end
+  M.character = M.characters[0]        -- backward-compat alias
+
+  M.floor = load_png_abs(assets_dir .. "/floors/floor_0.png")
+  M.wall  = load_png_abs(assets_dir .. "/walls/wall_0.png")
+  M.desk  = load_png_abs(assets_dir .. "/furniture/DESK/DESK_FRONT.png")
+  M.chair = load_png_abs(assets_dir .. "/furniture/WOODEN_CHAIR/WOODEN_CHAIR_BACK.png")
 
   -- Character: 7 frames (16 wide each) x 3 direction rows (32 tall each).
   -- Frame order per CLAUDE.md: walk1, walk2, walk3, type1, type2, read1, read2
   -- Rows: 0=down, 1=up, 2=right (left mirrors right at draw-time).
-  local cw, ch = M.character:getDimensions()
+  local cw, ch = M.characters[0]:getDimensions()
   M._char_w, M._char_h = cw, ch
   M.char_idle_quad = love.graphics.newQuad(1 * 16, 0, 16, 32, cw, ch)
 
-  -- Cache one quad per (frame, dir_row) pair.
+  -- All 6 palettes share the same 112x96 layout, so one quad grid serves all.
   M._char_quads = {}
   for dir_row = 0, 2 do
     M._char_quads[dir_row] = {}
@@ -59,6 +73,12 @@ function M.load()
     end
   end
 
+  local dw, dh = M.desk:getDimensions()
+  M.desk_quad = love.graphics.newQuad(0, 0, dw, dh, dw, dh)
+
+  local chw, chh = M.chair:getDimensions()
+  M.chair_quad = love.graphics.newQuad(0, 0, chw, chh, chw, chh)
+
   local fw, fh = M.floor:getDimensions()
   M.floor_quad = love.graphics.newQuad(0, 0, 16, 16, fw, fh)
 
@@ -67,13 +87,20 @@ function M.load()
   local ww, wh = M.wall:getDimensions()
   M.wall_quad = love.graphics.newQuad(0, 0, 16, 32, ww, wh)
 
-  print(string.format("[assets] loaded 3 PNGs from %s", assets_dir))
+  print(string.format("[assets] loaded: 6 chars + floor + wall + desk + chair from %s", assets_dir))
 end
 
--- Get the Quad for a (frame 0..6, dir_row 0..2) pair. Cached.
+-- Get the Quad for a (frame 0..6, dir_row 0..2) pair. Cached. Same quad
+-- applies to every palette since all char sheets share layout.
 function M.char_quad(frame, dir_row)
   local row = M._char_quads[dir_row]
   return row and row[frame] or M.char_idle_quad
+end
+
+-- Return the Image for a given palette index (0..5, wraps).
+function M.char_image(palette)
+  palette = palette % 6
+  return M.characters[palette] or M.characters[0]
 end
 
 return M

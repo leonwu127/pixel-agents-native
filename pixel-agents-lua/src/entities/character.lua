@@ -37,6 +37,7 @@ function M.new(init)
     path = nil,
     path_idx = 1,
     anim_time = 0,
+    palette = init.palette or 0,     -- 0..5; selects which char_N.png sheet
   }
 end
 

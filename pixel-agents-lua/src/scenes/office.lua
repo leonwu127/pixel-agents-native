@@ -57,20 +57,24 @@ function M:_spawn_character(session_id)
   local w = self.world
   if world.getCharacter(w, session_id) then return end
 
+  local palette = world.pickDiversePalette(w)
   local ch = character.new({
     id = session_id,
     col = w.layout.door.col,
     row = w.layout.door.row,
     direction = "right",
+    palette = palette,
   })
   world.addCharacter(w, ch)
 
   local seat = world.findFreeSeat(w)
   if seat then
     self:_walk_char_to_seat(ch, seat)
-    print(string.format("[scene] spawned %s -> seat %s", session_id, seat.id))
+    print(string.format("[scene] spawned %s [palette %d] -> seat %s",
+      session_id, palette, seat.id))
   else
-    print(string.format("[scene] spawned %s -> idle at door (no free seat)", session_id))
+    print(string.format("[scene] spawned %s [palette %d] -> idle at door (no free seat)",
+      session_id, palette))
   end
 end
 

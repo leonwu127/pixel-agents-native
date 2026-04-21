@@ -57,11 +57,43 @@ describe("layout.loader.validate", function()
   it("builds walls and desks into the blocked set", function()
     local raw = minimal()
     raw.walls = { { col = 7, row = 3 } }
-    raw.desks = { { col = 4, row = 1 } }
+    raw.desks = { { col = 4, row = 1 } }  -- default 1x1
     local l = loader.validate(raw)
     assert.is_true(l.blocked["7,3"] == true)
     assert.is_true(l.blocked["4,1"] == true)
     assert.is_nil(l.blocked["0,0"])
+  end)
+
+  it("expands multi-tile desk footprint in blocked", function()
+    local raw = minimal()
+    raw.desks = { { col = 2, row = 1, w = 3, h = 2 } }
+    local l = loader.validate(raw)
+    -- 3x2 footprint = 6 blocked tiles
+    assert.is_true(l.blocked["2,1"] == true)
+    assert.is_true(l.blocked["3,1"] == true)
+    assert.is_true(l.blocked["4,1"] == true)
+    assert.is_true(l.blocked["2,2"] == true)
+    assert.is_true(l.blocked["3,2"] == true)
+    assert.is_true(l.blocked["4,2"] == true)
+    assert.is_nil(l.blocked["5,1"])
+  end)
+
+  it("errors when desk footprint extends past grid", function()
+    local raw = minimal()
+    raw.desks = { { col = 8, row = 0, w = 5, h = 1 } }  -- 10-col grid, 8+5>10
+    assert.has_error(function() loader.validate(raw) end, "extends past cols")
+  end)
+
+  it("auto-derives chairs from seats (one back per seat)", function()
+    local raw = minimal()
+    raw.seats = {
+      { id = "s1", col = 3, row = 2 },
+      { id = "s2", col = 5, row = 2 },
+    }
+    local l = loader.validate(raw)
+    assert.are.equal(2, #l.chairs)
+    assert.are.equal(3, l.chairs[1].col)
+    assert.are.equal("back", l.chairs[1].orientation)
   end)
 
   it("respects custom default_floor", function()
@@ -77,13 +109,18 @@ describe("layout.loader.load", function()
     assert.are.equal(11, l.size.rows)
     assert.are.equal(4, #l.seats)
     assert.are.equal("s1", l.seats[1].id)
+    assert.are.equal(4, #l.chairs)     -- auto-derived
     -- door is walkable (not in walls/blocked)
     assert.is_nil(l.walls["0,5"])
     assert.is_nil(l.blocked["0,5"])
     -- a sample wall tile is present
     assert.is_true(l.walls["0,0"] == true)
-    -- a desk is in blocked
+    -- first desk (anchor 4,2 width 3) blocks cols 4,5,6 at row 2
+    assert.is_true(l.blocked["4,2"] == true)
     assert.is_true(l.blocked["5,2"] == true)
+    assert.is_true(l.blocked["6,2"] == true)
+    -- seat s1 at (5,3) is walkable (not blocked)
+    assert.is_nil(l.blocked["5,3"])
   end)
 
   it("errors on missing file", function()

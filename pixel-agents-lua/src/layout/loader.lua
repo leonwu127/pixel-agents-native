@@ -57,13 +57,31 @@ function M.validate(raw)
     assertf(type(raw.desks) == "table", "layout.desks must be a table or nil")
     for i, d in ipairs(raw.desks) do
       check_coord(string.format("layout.desks[%d]", i), d, cols, rows)
-      desks[i] = { col = d.col, row = d.row }
+      local w = d.w or 1
+      local h = d.h or 1
+      assertf(w >= 1 and h >= 1, "layout.desks[%d]: w and h must be >= 1", i)
+      assertf(d.col + w - 1 < cols, "layout.desks[%d]: extends past cols (col=%d w=%d)", i, d.col, w)
+      assertf(d.row + h - 1 < rows, "layout.desks[%d]: extends past rows (row=%d h=%d)", i, d.row, h)
+      desks[i] = { col = d.col, row = d.row, w = w, h = h }
     end
+  end
+
+  -- Chairs are auto-derived from seats: one back-facing chair at each seat tile.
+  local chairs = {}
+  for _, s in ipairs(seats) do
+    chairs[#chairs + 1] = { col = s.col, row = s.row, orientation = "back" }
   end
 
   local blocked = {}
   for k, _ in pairs(walls) do blocked[k] = true end
-  for _, d in ipairs(desks) do blocked[tile_key(d.col, d.row)] = true end
+  -- Each desk blocks every tile in its w x h footprint.
+  for _, d in ipairs(desks) do
+    for dc = 0, d.w - 1 do
+      for dr = 0, d.h - 1 do
+        blocked[tile_key(d.col + dc, d.row + dr)] = true
+      end
+    end
+  end
 
   return {
     size = { cols = cols, rows = rows },
@@ -71,6 +89,7 @@ function M.validate(raw)
     seats = seats,
     walls = walls,
     desks = desks,
+    chairs = chairs,
     blocked = blocked,
     default_floor = raw.default_floor or "floor_0",
   }

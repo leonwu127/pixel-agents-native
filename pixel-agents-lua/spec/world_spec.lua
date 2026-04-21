@@ -262,6 +262,43 @@ describe("world.tick — stale detection", function()
   end)
 end)
 
+describe("world.pickDiversePalette", function()
+  it("returns 0 on empty world", function()
+    local w = world.new(small_layout())
+    assert.are.equal(0, world.pickDiversePalette(w))
+  end)
+
+  it("picks the lowest-index palette that is least used", function()
+    local w = world.new(small_layout())
+    -- palette 0 taken
+    world.addCharacter(w, { id = "a", col = 0, row = 0, palette = 0 })
+    assert.are.equal(1, world.pickDiversePalette(w))
+    -- palette 0 and 1 taken
+    world.addCharacter(w, { id = "b", col = 0, row = 0, palette = 1 })
+    assert.are.equal(2, world.pickDiversePalette(w))
+  end)
+
+  it("first 6 chars get 6 distinct palettes", function()
+    local w = world.new(small_layout())
+    local picked = {}
+    for i = 1, 6 do
+      local p = world.pickDiversePalette(w)
+      picked[p] = true
+      world.addCharacter(w, { id = "c" .. i, col = 0, row = 0, palette = p })
+    end
+    for i = 0, 5 do assert.is_true(picked[i] == true) end
+  end)
+
+  it("7th character reuses a least-used palette", function()
+    local w = world.new(small_layout())
+    for i = 0, 5 do
+      world.addCharacter(w, { id = "c" .. i, col = 0, row = 0, palette = i })
+    end
+    local p = world.pickDiversePalette(w)
+    assert.is_true(p >= 0 and p <= 5)
+  end)
+end)
+
 describe("world.removeCharacter", function()
   it("removes and reindexes remaining characters", function()
     local w = world.new(small_layout())
