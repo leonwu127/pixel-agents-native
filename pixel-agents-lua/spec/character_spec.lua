@@ -85,6 +85,33 @@ describe("character.update (movement)", function()
   end)
 end)
 
+describe("character.walkTo arrival_facing", function()
+  it("overrides direction on arrival when arrival_facing given", function()
+    local ch = character.new({ id = "a", col = 0, row = 0 })
+    -- Path ends with a move east, so natural arrival direction would be "right"
+    character.walkTo(ch, { pt(0, 0), pt(1, 0), pt(2, 0) }, { arrival_facing = "up" })
+    character.update(ch, 10)
+    assert.are.equal("idle", ch.state)
+    assert.are.equal("up", ch.direction)
+    -- Consumed, cleared for next walk
+    assert.is_nil(ch.arrival_facing)
+  end)
+
+  it("respects natural direction when arrival_facing omitted", function()
+    local ch = character.new({ id = "a", col = 0, row = 0 })
+    character.walkTo(ch, { pt(0, 0), pt(1, 0), pt(2, 0) })
+    character.update(ch, 10)
+    assert.are.equal("right", ch.direction)
+  end)
+
+  it("single-tile walk (start == end) still applies arrival_facing", function()
+    local ch = character.new({ id = "a", col = 0, row = 0, direction = "right" })
+    character.walkTo(ch, { pt(0, 0) }, { arrival_facing = "down" })
+    assert.are.equal("idle", ch.state)
+    assert.are.equal("down", ch.direction)
+  end)
+end)
+
 describe("character.face_toward", function()
   it("picks axis with the larger delta", function()
     local ch = character.new({ id = "a", col = 5, row = 5 })

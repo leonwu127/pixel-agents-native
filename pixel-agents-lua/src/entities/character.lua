@@ -60,10 +60,15 @@ local function pick_cycle(ch)
   return nil                         -- idle stand, single frame
 end
 
-function M.walkTo(ch, path)
+-- opts.arrival_facing: optional "up" | "down" | "left" | "right". When the
+-- character arrives at the path end, direction is overridden to this value.
+-- Useful for seats that should face their desk regardless of approach angle.
+function M.walkTo(ch, path, opts)
   if not path or #path == 0 then return end
+  opts = opts or {}
   ch.path = path
   ch.path_idx = 1
+  ch.arrival_facing = opts.arrival_facing
   while ch.path_idx <= #ch.path
     and ch.path[ch.path_idx].col == ch.col
     and ch.path[ch.path_idx].row == ch.row do
@@ -72,6 +77,10 @@ function M.walkTo(ch, path)
   if ch.path_idx > #ch.path then
     ch.state = "idle"
     ch.path = nil
+    if ch.arrival_facing then
+      ch.direction = ch.arrival_facing
+      ch.arrival_facing = nil
+    end
     return
   end
   ch.state = "walk"
@@ -81,12 +90,20 @@ end
 
 function M.update(ch, dt)
   -- Movement
+  local function on_arrive()
+    ch.state = "idle"; ch.path = nil
+    if ch.arrival_facing then
+      ch.direction = ch.arrival_facing
+      ch.arrival_facing = nil
+    end
+  end
+
   if ch.state == "walk" and ch.path then
     local remaining = dt
     while remaining > 0 do
       local target = ch.path[ch.path_idx]
       if not target then
-        ch.state = "idle"; ch.path = nil; break
+        on_arrive(); break
       end
       local dx = target.col - ch.x
       local dy = target.row - ch.y
@@ -96,7 +113,7 @@ function M.update(ch, dt)
         ch.col = target.col; ch.row = target.row
         ch.path_idx = ch.path_idx + 1
         if ch.path_idx > #ch.path then
-          ch.state = "idle"; ch.path = nil; break
+          on_arrive(); break
         end
         face_toward(ch, ch.path[ch.path_idx])
       elseif WALK_SPEED * remaining >= dist then
@@ -106,7 +123,7 @@ function M.update(ch, dt)
         ch.col = target.col; ch.row = target.row
         ch.path_idx = ch.path_idx + 1
         if ch.path_idx > #ch.path then
-          ch.state = "idle"; ch.path = nil; break
+          on_arrive(); break
         end
         face_toward(ch, ch.path[ch.path_idx])
       else

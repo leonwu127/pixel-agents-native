@@ -84,6 +84,36 @@ describe("layout.loader.validate", function()
     assert.has_error(function() loader.validate(raw) end, "extends past cols")
   end)
 
+  it("annotates each seat with facing toward adjacent desk (N preferred)", function()
+    local raw = minimal()
+    raw.seats = {
+      { id = "s-north", col = 3, row = 3 },
+      { id = "s-south", col = 5, row = 1 },
+    }
+    raw.desks = {
+      { col = 3, row = 2, w = 1, h = 1 },   -- north of s-north
+      { col = 5, row = 2, w = 1, h = 1 },   -- south of s-south
+    }
+    local l = loader.validate(raw)
+    local by_id = {}
+    for _, s in ipairs(l.seats) do by_id[s.id] = s end
+    assert.are.equal("up", by_id["s-north"].facing)
+    assert.are.equal("down", by_id["s-south"].facing)
+  end)
+
+  it("defaults seat facing to 'up' when no adjacent blocked tile", function()
+    local raw = minimal()
+    local l = loader.validate(raw)
+    assert.are.equal("up", l.seats[1].facing)
+  end)
+
+  it("mvp_v0 seats all face up", function()
+    local l = loader.load("layouts/mvp_v0.lua")
+    for _, s in ipairs(l.seats) do
+      assert.are.equal("up", s.facing)
+    end
+  end)
+
   it("auto-derives chairs from seats (one back per seat)", function()
     local raw = minimal()
     raw.seats = {

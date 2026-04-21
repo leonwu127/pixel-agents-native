@@ -83,6 +83,23 @@ function M.validate(raw)
     end
   end
 
+  -- Annotate each seat with a facing direction: toward the nearest adjacent
+  -- blocked tile (desk / wall). Prefer N > S > E > W. Default "up" (most
+  -- common convention for an office where desks line the north wall).
+  for _, s in ipairs(seats) do
+    if blocked[tile_key(s.col, s.row - 1)] then
+      s.facing = "up"
+    elseif blocked[tile_key(s.col, s.row + 1)] then
+      s.facing = "down"
+    elseif blocked[tile_key(s.col + 1, s.row)] then
+      s.facing = "right"
+    elseif blocked[tile_key(s.col - 1, s.row)] then
+      s.facing = "left"
+    else
+      s.facing = "up"
+    end
+  end
+
   return {
     size = { cols = cols, rows = rows },
     door = { col = raw.door.col, row = raw.door.row },

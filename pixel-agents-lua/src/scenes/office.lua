@@ -50,7 +50,9 @@ function M:_walk_char_to_seat(ch, seat)
     from = { col = ch.col, row = ch.row },
     to = { col = seat.col, row = seat.row },
   })
-  if path then character.walkTo(ch, path) end
+  if path then
+    character.walkTo(ch, path, { arrival_facing = seat.facing or "up" })
+  end
 end
 
 function M:_spawn_character(session_id)
