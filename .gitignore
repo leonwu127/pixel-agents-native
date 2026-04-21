@@ -30,7 +30,8 @@ playwright-report/
 !.env.example
 
 # Project-specific
-.claude/
+.claude/settings.local.json
+.claude/state/
 /sprites-export
 
 # Local notes (not for commit)

@@ -1,0 +1,43 @@
+# {{PROJECT_NAME}} — Plans.md
+
+Created: {{DATE}}
+Branch: {{BRANCH}}
+
+> Central task list maintained by the `plan` skill, consumed by `work`, audited by `review`.
+> One task is `cc:WIP` at any time. Mark `cc:done [sha]` on completion. Use `blocked: <reason>` to pause.
+
+---
+
+## Phase 1: {{PHASE_NAME}}
+
+| Task | Intent | DoD | Depends | Status |
+|------|--------|-----|---------|--------|
+| 1.1  | <short description> | `npm test` passes | - | cc:TODO |
+
+<!-- Add more rows. Format:
+| 1.2 | <intent> | <verifiable DoD> | 1.1 | cc:TODO |
+| 1.3 | <intent> | File `path/to/file.ts` exports `X` | 1.1, 1.2 | cc:TODO |
+| 1.4 | <intent> [P] | `npm run build` exits 0 | - | cc:TODO |
+-->
+
+---
+
+## Marker legend
+
+| Marker | Meaning |
+|--------|---------|
+| `cc:TODO` | Not started |
+| `cc:WIP` | In progress (one at a time) |
+| `cc:done [sha]` | Completed, commit hash recorded |
+| `blocked: <reason>` | Cannot proceed; reason required |
+| `[P]` (in Intent) | Parallelizable with other `[P]` tasks that don't share files |
+
+## DoD writing rules
+
+Every DoD must be verifiable by one of:
+- A specific command exits 0 (`npm test`, `npm run check-types`, `npm run build`, `npm run e2e`)
+- A specific file exists at a specific path
+- A specific string appears in logged output
+- A UI element is visible / interactive in the Extension Dev Host
+
+Banned DoD phrasing: "works correctly", "looks good", "is better", "handles edge cases".
