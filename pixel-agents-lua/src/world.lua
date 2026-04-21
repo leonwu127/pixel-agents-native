@@ -75,4 +75,63 @@ function M.removeCharacter(world, id)
   M.releaseSeat(world, id)
 end
 
+-- ============================================================
+-- Per-character event FSM (S3+).
+-- Applies a normalized event to one character.
+-- event.kind: "tool_start" | "tool_end" | "turn_end"
+-- event.sessionId required; must resolve to an existing character.
+-- `provider` is the provider instance (for toolStateMap).
+-- Returns true if handled, false if character was unknown / event ignored.
+-- ============================================================
+
+local BUBBLE_WAITING_TTL = 2.0
+
+function M.apply(world, event, provider)
+  local ch = M.getCharacter(world, event.sessionId)
+  if not ch then return false end
+
+  if event.kind == "tool_start" then
+    ch.active_tool_id = event.toolId
+    ch.active_tool_name = event.toolName
+    ch.activity = provider.toolStateMap[event.toolName or ""] or nil
+    -- New activity clears any waiting bubble.
+    ch.bubble = nil
+    ch.bubble_ttl = nil
+    return true
+  end
+
+  if event.kind == "tool_end" then
+    if ch.active_tool_id == event.toolId then
+      ch.active_tool_id = nil
+      ch.active_tool_name = nil
+      ch.activity = nil
+    end
+    return true
+  end
+
+  if event.kind == "turn_end" then
+    ch.activity = nil
+    ch.active_tool_id = nil
+    ch.active_tool_name = nil
+    ch.bubble = "waiting"
+    ch.bubble_ttl = BUBBLE_WAITING_TTL
+    return true
+  end
+
+  return false
+end
+
+-- Time-based effects: fade bubbles.
+function M.tick(world, dt)
+  for _, ch in ipairs(world.characters) do
+    if ch.bubble_ttl then
+      ch.bubble_ttl = ch.bubble_ttl - dt
+      if ch.bubble_ttl <= 0 then
+        ch.bubble = nil
+        ch.bubble_ttl = nil
+      end
+    end
+  end
+end
+
 return M
