@@ -14,10 +14,14 @@ local config = require("src.config")
 local camera_mod = require("src.camera")
 
 local hook_server_mod = require("src.systems.hook_server")
+local installer = require("src.systems.installer")
+local http_mod = require("src.systems.http")
+local json_decode = require("src.vendor.json").decode
 
 local scene
 local cam
 local hook_server_inst
+local hooks_installed = false  -- true only if we successfully wrote settings.json on boot
 
 -- Best-effort PID lookup via LuaJIT FFI (Love2D ships LuaJIT). Falls back to 0
 -- if FFI is unavailable, which just means server.json ownership can't be
@@ -74,8 +78,9 @@ function love.load()
 
   if conf.hooksEnabled then
     local pid = get_own_pid()
+    local home = config.user_home()
     hook_server_inst = hook_server_mod.new({
-      user_home = config.user_home(),
+      user_home = home,
       owner_pid = pid,
     })
     local ok, err = pcall(function() hook_server_inst:start() end)
@@ -85,6 +90,27 @@ function love.load()
       hook_server_inst = nil
     else
       log_to_save(string.format("[boot] hook server started (pid=%d)", pid))
+
+      -- Copy PowerShell hook script + install settings.json entries.
+      local json = { encode = http_mod.json_encode, decode = json_decode }
+      local io_ops = installer.make_io_ops()
+      local copied, dst, cerr = installer.install_hook_script(io_ops, game_dir, home)
+      if not copied then
+        log_to_save("[boot] hook script copy failed: " .. tostring(cerr))
+        print("[boot] hook script copy failed: " .. tostring(cerr))
+      else
+        log_to_save("[boot] hook script copied to " .. dst)
+        local installed, ierr = installer.install(io_ops, json,
+          installer.claude_settings_path(home), dst)
+        if installed then
+          hooks_installed = true
+          log_to_save("[boot] hooks installed in ~/.claude/settings.json")
+          print("[boot] hooks installed in ~/.claude/settings.json")
+        else
+          log_to_save("[boot] hooks install failed: " .. tostring(ierr))
+          print("[boot] hooks install failed: " .. tostring(ierr))
+        end
+      end
     end
   else
     log_to_save("[boot] hooks disabled (set hooksEnabled=true in config.lua to enable)")
@@ -133,6 +159,17 @@ function love.wheelmoved(dx, dy)
 end
 
 function love.quit()
+  if hooks_installed then
+    local json = { encode = http_mod.json_encode, decode = json_decode }
+    local io_ops = installer.make_io_ops()
+    local home = config.user_home()
+    local ok, err = installer.uninstall(io_ops, json, installer.claude_settings_path(home))
+    if ok then
+      print("[quit] hooks removed from ~/.claude/settings.json")
+    else
+      print("[quit] hooks uninstall failed: " .. tostring(err))
+    end
+  end
   if hook_server_inst then hook_server_inst:stop() end
   if scene then scene:stop() end
 end
